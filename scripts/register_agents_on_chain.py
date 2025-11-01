@@ -26,7 +26,7 @@ load_dotenv(override=True)
 # -------- CONFIG --------
 RPC_URL = os.getenv("HEDERA_RPC_URL", "https://testnet.hashio.io/api")
 PRIVATE_KEY = os.getenv("HEDERA_PRIVATE_KEY")
-CONTRACT_ADDRESS = os.getenv("IDENTITY_REGISTRY_ADDRESS", "0x34Db979B201a7e5ddCD430C89b63031A574bA4DA")
+CONTRACT_ADDRESS = os.getenv("IDENTITY_REGISTRY_ADDRESS", "0x8984Af52606420ECa228A81b300D4b5c69b990cA")
 
 # -------- VALIDATION --------
 if not PRIVATE_KEY or PRIVATE_KEY == "your_hedera_private_key_here":
@@ -96,13 +96,23 @@ def register_agent_on_chain(domain: str, agent_address: str = None):
 
     Args:
         domain: Agent domain/identifier (e.g., "problem-framer-001")
-        agent_address: Ethereum address (defaults to wallet address)
+        agent_address: Ethereum address (defaults to unique generated address)
 
     Returns:
         Transaction receipt or None if failed
     """
     if agent_address is None:
-        agent_address = wallet_address
+        # Generate unique deterministic address for each agent domain
+        from eth_account import Account
+        import hashlib
+
+        # Hash the domain to create a seed
+        seed = hashlib.sha256(domain.encode()).hexdigest()
+        # Generate account from seed (deterministic and unique per domain)
+        agent_account = Account.from_key('0x' + seed)
+        agent_address = agent_account.address
+
+    print(f"   🔐 Agent address: {agent_address}")
 
     try:
         # Check if agent already exists by domain
@@ -247,7 +257,8 @@ def register_all_agents():
             # Use agent_id as domain (unique identifier)
             domain = agent.agent_id
 
-            result = register_agent_on_chain(domain, wallet_address)
+            # Don't pass agent_address - let it generate unique address
+            result = register_agent_on_chain(domain)
 
             if result:
                 if isinstance(result, dict) and result.get("status") == "already_registered":
