@@ -1,6 +1,6 @@
 """Payment management routes."""
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, cast
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -22,6 +22,8 @@ class PaymentResponse(BaseModel):
     currency: str
     status: str
     transaction_id: Optional[str]
+    a2a_thread_id: Optional[str] = None
+    a2a_messages: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True
@@ -52,15 +54,20 @@ async def get_payment(payment_id: str, db: Session = Depends(get_db)):
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
+    payment_row: Any = payment  # Allow SQLAlchemy instrumented attributes
+    metadata = cast(Dict[str, Any], (payment_row.metadata or {}))
+
     return PaymentResponse(
-        id=payment.id,
-        task_id=payment.task_id,
-        from_agent_id=payment.from_agent_id,
-        to_agent_id=payment.to_agent_id,
-        amount=payment.amount,
-        currency=payment.currency,
-        status=payment.status.value,
-        transaction_id=payment.transaction_id,
+        id=str(payment_row.id),
+        task_id=str(payment_row.task_id),
+        from_agent_id=str(payment_row.from_agent_id),
+        to_agent_id=str(payment_row.to_agent_id),
+        amount=float(payment_row.amount),
+        currency=str(payment_row.currency),
+        status=payment_row.status.value,
+        transaction_id=payment_row.transaction_id,
+        a2a_thread_id=metadata.get("a2a_thread_id"),
+        a2a_messages=metadata.get("a2a_messages"),
     )
 
 
@@ -79,19 +86,26 @@ async def list_payments(
 
     payments = query.order_by(Payment.created_at.desc()).all()
 
-    return [
-        PaymentResponse(
-            id=payment.id,
-            task_id=payment.task_id,
-            from_agent_id=payment.from_agent_id,
-            to_agent_id=payment.to_agent_id,
-            amount=payment.amount,
-            currency=payment.currency,
-            status=payment.status.value,
-            transaction_id=payment.transaction_id,
+    responses: List[PaymentResponse] = []
+    for payment in payments:
+        payment_row = cast(Any, payment)
+        metadata = cast(Dict[str, Any], (payment_row.metadata or {}))
+        responses.append(
+            PaymentResponse(
+                id=str(payment_row.id),
+                task_id=str(payment_row.task_id),
+                from_agent_id=str(payment_row.from_agent_id),
+                to_agent_id=str(payment_row.to_agent_id),
+                amount=float(payment_row.amount),
+                currency=str(payment_row.currency),
+                status=payment_row.status.value,
+                transaction_id=payment_row.transaction_id,
+                a2a_thread_id=metadata.get("a2a_thread_id"),
+                a2a_messages=metadata.get("a2a_messages"),
+            )
         )
-        for payment in payments
-    ]
+
+    return responses
 
 
 @router.post("/", response_model=PaymentResponse)
@@ -100,6 +114,7 @@ async def create_payment(request: CreatePaymentRequest):
     from agents.negotiator import create_negotiator_agent
 
     agent = create_negotiator_agent()
+    agent_runner = cast(Any, agent)
 
     prompt = f"""
     Create a payment request:
@@ -110,7 +125,7 @@ async def create_payment(request: CreatePaymentRequest):
     Description: {request.description}
     """
 
-    result = await agent.run(prompt)
+    result = await agent_runner.run(prompt)
 
     return {"message": "Payment request created", "result": result}
 
@@ -121,12 +136,13 @@ async def release_payment(payment_id: str, request: ReleasePaymentRequest):
     from agents.verifier import create_verifier_agent
 
     agent = create_verifier_agent()
+    agent_runner = cast(Any, agent)
 
     prompt = f"""
     Release payment: {payment_id}
     Verification notes: {request.verification_notes}
     """
 
-    result = await agent.run(prompt)
+    result = await agent_runner.run(prompt)
 
     return {"message": "Payment release initiated", "result": result}
