@@ -2,7 +2,8 @@
 
 import os
 import json
-from typing import Dict, Any, List, Optional, Callable
+import inspect
+from typing import Dict, Any, List, Optional, Callable, Union, get_origin, get_args
 from openai import AsyncOpenAI
 from datetime import datetime
 
@@ -58,11 +59,32 @@ class OpenAIAgent:
             # Extract function metadata from docstring and annotations
             func_name = tool.__name__
             func_doc = tool.__doc__ or "No description"
+            
+            # Extract description from first line of docstring
+            description_lines = func_doc.split("\n")
+            description = description_lines[0].strip() if description_lines else "No description"
+            
+            # Parse Args section from docstring
+            param_descriptions = {}
+            in_args_section = False
+            for line in description_lines:
+                if line.strip().startswith("Args:"):
+                    in_args_section = True
+                    continue
+                if in_args_section:
+                    if line.strip() and not line.strip().startswith((":", " ", "\t")) and ":" not in line and not line.strip().startswith(("Args", "Returns", "Example")):
+                        in_args_section = False
+                    elif ":" in line:
+                        parts = line.split(":", 1)
+                        if len(parts) == 2:
+                            param_name = parts[0].strip().rstrip(":")
+                            param_desc = parts[1].strip()
+                            param_descriptions[param_name] = param_desc
 
             # Basic function schema
             function_schema = {
                 "name": func_name,
-                "description": func_doc.split("\n")[0].strip(),
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {},
@@ -70,25 +92,72 @@ class OpenAIAgent:
                 }
             }
 
-            # Try to extract parameters from function annotations
-            if hasattr(tool, "__annotations__"):
-                for param_name, param_type in tool.__annotations__.items():
-                    if param_name != "return":
-                        # Simplified type mapping
-                        param_type_str = "string"
-                        if param_type in [int, float]:
-                            param_type_str = "number"
-                        elif param_type == bool:
-                            param_type_str = "boolean"
-                        elif param_type in [list, List]:
-                            param_type_str = "array"
-                        elif param_type in [dict, Dict]:
-                            param_type_str = "object"
-
-                        function_schema["parameters"]["properties"][param_name] = {
-                            "type": param_type_str,
-                            "description": f"Parameter {param_name}"
-                        }
+            # Get function signature
+            try:
+                sig = inspect.signature(tool)
+                for param_name, param in sig.parameters.items():
+                    if param_name == "self":
+                        continue
+                    
+                    param_type = param.annotation if param.annotation != inspect.Parameter.empty else str
+                    param_default = param.default if param.default != inspect.Parameter.empty else None
+                    
+                    # Determine type
+                    param_type_str = "string"
+                    if param_type == int:
+                        param_type_str = "integer"
+                    elif param_type == float:
+                        param_type_str = "number"
+                    elif param_type == bool:
+                        param_type_str = "boolean"
+                    elif param_type in [list, List] or (hasattr(param_type, "__origin__") and get_origin(param_type) is list):
+                        param_type_str = "array"
+                    elif param_type in [dict, Dict] or (hasattr(param_type, "__origin__") and get_origin(param_type) is dict):
+                        param_type_str = "object"
+                    
+                    # Handle Optional types
+                    if hasattr(param_type, "__origin__"):
+                        origin = get_origin(param_type)
+                        if origin and hasattr(origin, "__name__") and "Optional" in str(origin):
+                            args = get_args(param_type)
+                            if args:
+                                inner_type = args[0]
+                                if inner_type == int:
+                                    param_type_str = "integer"
+                                elif inner_type == float:
+                                    param_type_str = "number"
+                                elif inner_type == bool:
+                                    param_type_str = "boolean"
+                    
+                    # Get description from docstring or use default
+                    param_desc = param_descriptions.get(param_name, f"Parameter {param_name}")
+                    
+                    function_schema["parameters"]["properties"][param_name] = {
+                        "type": param_type_str,
+                        "description": param_desc
+                    }
+                    
+                    # Add to required if no default
+                    if param_default is inspect.Parameter.empty:
+                        function_schema["parameters"]["required"].append(param_name)
+            except Exception as e:
+                # Fallback: use annotations if signature parsing fails
+                if hasattr(tool, "__annotations__"):
+                    for param_name, param_type in tool.__annotations__.items():
+                        if param_name != "return" and param_name != "self":
+                            param_type_str = "string"
+                            if param_type == int:
+                                param_type_str = "integer"
+                            elif param_type == float:
+                                param_type_str = "number"
+                            elif param_type == bool:
+                                param_type_str = "boolean"
+                            
+                            function_schema["parameters"]["properties"][param_name] = {
+                                "type": param_type_str,
+                                "description": param_descriptions.get(param_name, f"Parameter {param_name}")
+                            }
+                            function_schema["parameters"]["required"].append(param_name)
 
             functions.append(function_schema)
 
@@ -111,22 +180,105 @@ class OpenAIAgent:
         ]
 
         try:
-            # For research agents, we don't use function calling
-            # Instead, we ask the LLM to generate JSON responses directly
-            # This is simpler and works better for structured outputs
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=kwargs.get("max_tokens", 4096),
-                response_format={"type": "json_object"} if kwargs.get("json_mode", False) else None
-            )
+            # Use function calling if tools are available
+            if self.functions:
+                max_iterations = kwargs.get("max_iterations", 10)
+                iteration = 0
+                
+                while iteration < max_iterations:
+                    response = await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=self.temperature,
+                        max_tokens=kwargs.get("max_tokens", 4096),
+                        tools=[{"type": "function", "function": func} for func in self.functions] if self.functions else None,
+                        tool_choice="auto"
+                    )
+                    
+                    message = response.choices[0].message
+                    
+                    # Add assistant message to conversation
+                    messages.append({
+                        "role": "assistant",
+                        "content": message.content,
+                        "tool_calls": message.tool_calls
+                    } if message.tool_calls else {
+                        "role": "assistant",
+                        "content": message.content
+                    })
+                    
+                    # If no tool calls, we're done
+                    if not message.tool_calls:
+                        return message.content or ""
+                    
+                    # Execute tool calls
+                    for tool_call in message.tool_calls:
+                        tool_name = tool_call.function.name
+                        tool_args = json.loads(tool_call.function.arguments)
+                        
+                        # Find the tool function
+                        tool_func = None
+                        for tool in self.tools:
+                            if tool.__name__ == tool_name:
+                                tool_func = tool
+                                break
+                        
+                        if not tool_func:
+                            tool_result = f"Error: Tool {tool_name} not found"
+                        else:
+                            try:
+                                # Call the tool (handle both sync and async)
+                                import inspect
+                                
+                                # Check if it's a coroutine function first
+                                if inspect.iscoroutinefunction(tool_func):
+                                    tool_result = await tool_func(**tool_args)
+                                else:
+                                    # Call sync function
+                                    tool_result = tool_func(**tool_args)
+                                    # Check if result is a coroutine (handles decorators that return coroutines)
+                                    if inspect.iscoroutine(tool_result):
+                                        tool_result = await tool_result
+                                
+                                # Convert result to string if needed
+                                if isinstance(tool_result, (dict, list)):
+                                    tool_result = json.dumps(tool_result, indent=2)
+                                elif tool_result is None:
+                                    tool_result = "No result returned"
+                                else:
+                                    tool_result = str(tool_result)
+                            except Exception as e:
+                                import traceback
+                                error_trace = traceback.format_exc()
+                                tool_result = f"Error executing {tool_name}: {str(e)}\n{traceback.format_exc()}"
+                        
+                        # Add tool result to messages
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "name": tool_name,
+                            "content": tool_result
+                        })
+                    
+                    iteration += 1
+                
+                # Return last assistant message if we hit max iterations
+                return messages[-1].get("content", "Max iterations reached") if messages else "No response"
+            else:
+                # No tools, just regular chat
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=kwargs.get("max_tokens", 4096),
+                    response_format={"type": "json_object"} if kwargs.get("json_mode", False) else None
+                )
 
-            # Extract response
-            message = response.choices[0].message
+                # Extract response
+                message = response.choices[0].message
 
-            # Return regular message
-            return message.content or ""
+                # Return regular message
+                return message.content or ""
 
         except Exception as e:
             return f"Error: {str(e)}"

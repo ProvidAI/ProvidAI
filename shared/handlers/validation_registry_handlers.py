@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from web3 import Web3
 import json
 
@@ -13,7 +15,11 @@ account = web3.eth.account.from_key(PRIVATE_KEY)
 wallet_address = account.address
 
 # Load ABI
-with open("../contracts/ValidationRegistry.sol/ValidationRegistry.json") as f:
+# Get path relative to this file's location
+_current_dir = Path(__file__).parent
+_contract_json_path = _current_dir.parent / "contracts" / "ValidationRegistry.sol" / "ValidationRegistry.json"
+
+with open(_contract_json_path) as f:
     contract_json = json.load(f)
     abi = contract_json["abi"]
 
