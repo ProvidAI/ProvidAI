@@ -39,12 +39,24 @@ async def query_agent_by_id(agent_id: int) -> Dict[str, Any]:
         agent_data = get_agent(agent_id)
         if not agent_data:
             return {"success": False, "error": f"Agent {agent_id} not found"}
+        
+        # Validate the agent data
+        if len(agent_data) < 3:
+            return {"success": False, "error": f"Invalid agent data returned for agent_id {agent_id}"}
+        
+        agent_id_returned = agent_data[0]
+        agent_domain = agent_data[1]
+        agent_address = agent_data[2]
+        
+        # Check if agent_id is 0 (invalid) - this means agent not found
+        if agent_id_returned == 0 or agent_id_returned != agent_id:
+            return {"success": False, "error": f"Agent {agent_id} not found (agent_id mismatch or zero)"}
 
         return {
             "success": True,
-            "agent_id": agent_data[0],
-            "domain": agent_data[1],
-            "address": agent_data[2],
+            "agent_id": agent_id_returned,
+            "domain": agent_domain,
+            "address": agent_address,
             "on_chain": True,
         }
     except Exception as e:
@@ -67,9 +79,21 @@ async def query_agent_by_domain(domain: str) -> Dict[str, Any]:
         if not agent_data:
             return {"success": False, "error": f"Agent with domain '{domain}' not found"}
 
+        # Validate the agent data
+        if len(agent_data) < 3:
+            return {"success": False, "error": f"Invalid agent data returned for domain '{domain}'"}
+        
         agent_id = agent_data[0]
         agent_domain = agent_data[1]
         agent_address = agent_data[2]
+        
+        # Check if agent_id is 0 (invalid) - this means agent not found
+        if agent_id == 0:
+            return {"success": False, "error": f"Agent with domain '{domain}' not found (agent_id is 0)"}
+        
+        # Check if domain is empty or doesn't match
+        if not agent_domain or agent_domain == "" or agent_domain != domain:
+            return {"success": False, "error": f"Agent with domain '{domain}' not found (invalid domain in response)"}
 
         # Try to get API endpoint from database
         db = SessionLocal()

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from web3 import Web3
 
@@ -15,7 +16,11 @@ account = web3.eth.account.from_key(PRIVATE_KEY)
 wallet_address = account.address
 
 # Load ABI (make sure JSON artifact exists)
-with open("../contracts/IdentityRegistry.sol/IdentityRegistry.json") as f:
+# Get path relative to this file's location
+_current_dir = Path(__file__).parent
+_contract_json_path = _current_dir.parent / "contracts" / "IdentityRegistry.sol" / "IdentityRegistry.json"
+
+with open(_contract_json_path) as f:
     contract_json = json.load(f)
     abi = contract_json["abi"]
 
@@ -71,6 +76,23 @@ def get_agent(agent_id: int):
 def resolve_by_domain(domain: str):
     try:
         agent = identity_registry.functions.resolveByDomain(domain).call()
+        
+        # Check if response looks like an error tuple (same hex value repeated)
+        if agent and isinstance(agent, tuple) and len(agent) >= 2:
+            # Check if first two elements are the same (likely an error selector)
+            # Handle both string and integer/bytes representations
+            val0_str = str(agent[0]).lower().strip()
+            val1_str = str(agent[1]).lower().strip()
+            if val0_str == val1_str and ('0x' in val0_str or val0_str.startswith('0x')):
+                print(f"❌ Contract returned error selector: {agent[0]}")
+                return None
+        
+        # Validate the response - agent_id should not be 0, domain should not be empty
+        if agent and len(agent) >= 3:
+            agent_id = agent[0]
+            agent_domain = agent[1]
+            if agent_id == 0 or not agent_domain or agent_domain == "":
+                return None
         return agent
     except Exception as e:
         print("❌ Error:", e)
