@@ -103,14 +103,14 @@ class TaskEscrowConfig:
 def _load_task_escrow_abi() -> List[Dict[str, Any]]:
     """Load the TaskEscrow ABI from the shared contracts folder."""
 
-    abi_path = Path(__file__).resolve().parent.parent / "contracts" / "TaskEscrow.json"
+    abi_path = Path(__file__).resolve().parent.parent / "contracts" / "TaskEscrow.sol" / "TaskEscrow.json"
     with abi_path.open("r", encoding="utf-8") as abi_file:
         data = json.load(abi_file)
     if isinstance(data, dict) and "abi" in data:
         return data["abi"]
     if isinstance(data, list):
         return data
-    raise ValueError("Invalid ABI format at shared/contracts/TaskEscrow.json")
+    raise ValueError("Invalid ABI format at shared/contracts/TaskEscrow.sol/TaskEscrow.json")
 
 
 TASK_ESCROW_ABI = _load_task_escrow_abi()
