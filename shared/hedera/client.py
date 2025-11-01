@@ -37,7 +37,7 @@ class HederaClientWrapper:
     operator_key: PrivateKey
     topic_id: Optional[TopicId] = None
 
-    async def create_topic(self, memo: str = "HCS-10 Coordination Topic") -> TopicId:
+    async def create_topic(self, memo: str = "Agent Coordination Topic") -> TopicId:
         """Create a new HCS topic."""
         transaction = TopicCreateTransaction().set_topic_memo(memo)
 

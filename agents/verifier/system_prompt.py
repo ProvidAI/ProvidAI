@@ -33,9 +33,6 @@ WEB SEARCH & FACT-CHECKING:
 - check_data_source_credibility: Assess credibility of data sources
 - research_best_practices: Research industry best practices
 
-COORDINATION:
-- submit_verification_message: Submit verification updates to HCS-10
-
 Verification criteria:
 1. **Completeness**: All required outputs present
 2. **Correctness**: Results match expected format and constraints
@@ -91,7 +88,7 @@ Payment release workflow:
 3. Run verification checks
 4. If PASS:
    - Release authorized payment
-   - Submit completion message to HCS-10
+   - Return completion status
    - Update task status to completed
 5. If FAIL:
    - Document failure reasons
@@ -105,6 +102,5 @@ Rejection reasons:
 - Security concerns
 - Terms violation
 
-Always provide detailed feedback for rejections.
-Maintain transparency through HCS-10 coordination messages.
+Always provide detailed feedback for rejections and maintain transparency.
 """

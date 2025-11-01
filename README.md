@@ -35,7 +35,6 @@ x402 Payment Dynamic Tools Checks
    - Analyzes user requests
    - Creates structured TODO lists
    - Coordinates agent workflows
-   - Submits to HCS-10 topic
 
 2. **Negotiator** (`agents/negotiator/`)
    - Discovers agents via ERC-8004
@@ -46,7 +45,6 @@ x402 Payment Dynamic Tools Checks
 3. **Executor** (`agents/executor/`) ⭐ **META-TOOLING**
    - **Dynamically creates tools** for discovered agents
    - Loads and executes runtime-generated tools
-   - Coordinates via HCS-10
    - Handles execution errors
 
 4. **Verifier** (`agents/verifier/`)
@@ -178,7 +176,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 HEDERA_NETWORK=testnet
 HEDERA_ACCOUNT_ID=0.0.12345
 HEDERA_PRIVATE_KEY=302e...
-HCS_TOPIC_ID=0.0.67890
 
 # Database
 DATABASE_URL=postgresql://user:pass@localhost/hedera_marketplace
@@ -305,7 +302,7 @@ ProvidAI/
 │       └── tools/
 ├── shared/                    # Shared utilities
 │   ├── hedera/               # Hedera SDK client
-│   ├── protocols/            # ERC-8004, HCS-10, x402
+│   ├── protocols/            # ERC-8004, x402
 │   ├── database/             # SQLAlchemy models
 │   └── contracts/            # Solidity contracts
 │       └── ERC8004Registry.sol
@@ -328,15 +325,6 @@ Decentralized agent registry on Hedera:
 - Agents register with metadata URIs (IPFS/HTTP)
 - Capability-based discovery
 - Python integration via Web3.py
-
-### HCS-10: Coordination
-
-Hedera Consensus Service for multi-agent coordination:
-
-- Task creation/assignment messages
-- Progress updates
-- Tool creation notifications
-- Payment events
 
 ### x402: Payments
 
@@ -499,7 +487,6 @@ MIT
 - [Strands SDK Documentation](https://github.com/anthropics/strands)
 - [Hedera Documentation](https://docs.hedera.com/)
 - [ERC-8004 Specification](https://eips.ethereum.org/EIPS/eip-8004)
-- [HCS-10 Protocol](https://hedera.com/hcs)
 
 ## Support
 
