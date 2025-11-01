@@ -1,6 +1,4 @@
 """Protocol implementations for ERC-8004, x402, and A2A."""
-
-from .erc8004 import ERC8004Discovery, AgentMetadata
 from .x402 import X402Payment, PaymentRequest, PaymentStatus
 from .a2a import (
     A2AMessage,
@@ -12,8 +10,6 @@ from .a2a import (
 )
 
 __all__ = [
-    "ERC8004Discovery",
-    "AgentMetadata",
     "X402Payment",
     "PaymentRequest",
     "PaymentStatus",
