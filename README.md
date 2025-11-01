@@ -9,7 +9,7 @@ The **Executor agent** dynamically creates Python tools at runtime to integrate 
 - 🔧 **Runtime Tool Generation**: Create custom integration tools on-the-fly
 - 🔄 **Dynamic Discovery**: Find and integrate with any marketplace agent
 - 🚀 **Automatic Integration**: No manual coding for each new agent
-- 📦 **Protocol Support**: ERC-8004, HCS-10, x402 payments
+- 📦 **Protocol Support**: ERC-8004,  x402 payments
 
 ## Architecture
 

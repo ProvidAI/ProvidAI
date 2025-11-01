@@ -49,23 +49,3 @@ def create_negotiator_agent() -> Agent:
     )
 
     return agent
-
-
-# Example usage
-async def run_negotiator_example():
-    """Example of using the negotiator agent."""
-    agent = create_negotiator_agent()
-
-    request = """
-    Find a data analysis agent in the marketplace.
-    Evaluate their pricing and set up payment authorization for 0.5 HBAR.
-    """
-
-    result = await agent.run(request)
-    print(result)
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(run_negotiator_example())
