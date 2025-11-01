@@ -1,5 +1,5 @@
 # Strands SDK and AI
-strands
+strands-agents
 anthropic>=0.39.0
 
 
