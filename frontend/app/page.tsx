@@ -314,37 +314,7 @@ export default function Home() {
               </div>
             </nav>
 
-            <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-              <div className="space-y-10">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1 text-sm font-medium text-sky-200">
-                  <Sparkles className="h-4 w-4" />
-                  Hedera + ERC-8004 ready
-                </span>
-                <div className="space-y-6">
-                  <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-                    Orchestrate trustworthy AI agents
-                  </h1>
-                  <p className="max-w-xl text-lg leading-relaxed text-slate-300">
-                    ProvidAI plan, negotiate, execute, and verify complex tasks autonomously. Describe your
-                    outcome and let ProvidAI deliver a signed, hedged result while you stay in complete control of budget
-                    and quality gates.
-                  </p>
-                  <Button
-                    onClick={handleScrollToConsole}
-                    className="bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 text-white shadow-lg shadow-sky-500/30 transition hover:opacity-90"
-                  >
-                    Try the live console
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-8 gap-y-4 text-xs uppercase tracking-[0.35em] text-slate-400">
-                  <span className="hidden h-px flex-1 bg-white/20 sm:block" />
-                  <span>Trusted by teams shipping on Hedera</span>
-                  <span className="hidden h-px flex-1 bg-white/20 sm:block" />
-                </div>
-              </div>
-
+            <div className="flex justify-center">
               <div id="task-console" className="relative">
                 <div className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-sky-500/15 via-transparent to-purple-600/20 blur-2xl" />
                 <div className="relative overflow-hidden rounded-[28px] border border-white/20 bg-slate-900/75 p-6 shadow-[0_45px_90px_-50px_rgba(56,189,248,0.9)] backdrop-blur-xl">
