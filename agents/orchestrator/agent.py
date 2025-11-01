@@ -1,17 +1,20 @@
 """Orchestrator Agent implementation using Strands SDK."""
 
 import os
-from strands import Agent
+
 from anthropic import Anthropic
+from strands import Agent
 
 from .system_prompt import ORCHESTRATOR_SYSTEM_PROMPT
 from .tools import (
     create_task,
-    update_task_status,
-    get_task,
     create_todo_list,
+    executor_agent,
+    get_task,
+    negotiator_agent,
+    update_task_status,
     update_todo_item,
-    submit_coordination_message,
+    verifier_agent,
 )
 
 
@@ -39,7 +42,9 @@ def create_orchestrator_agent() -> Agent:
         get_task,
         create_todo_list,
         update_todo_item,
-        submit_coordination_message,
+        negotiator_agent,
+        executor_agent,
+        verifier_agent,
     ]
 
     # Create agent with Strands SDK
@@ -51,26 +56,3 @@ def create_orchestrator_agent() -> Agent:
     )
 
     return agent
-
-
-# Example usage
-async def run_orchestrator_example():
-    """Example of using the orchestrator agent."""
-    agent = create_orchestrator_agent()
-
-    # Example request
-    request = """
-    I need to analyze sales data from our marketplace.
-    Please find an agent that can perform data analysis,
-    integrate with it, and generate a report.
-    """
-
-    # Run the agent
-    result = await agent.run(request)
-    print(result)
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(run_orchestrator_example())

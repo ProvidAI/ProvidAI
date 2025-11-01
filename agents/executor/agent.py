@@ -11,7 +11,6 @@ from .tools import (
     list_dynamic_tools,
     execute_shell_command,
     get_tool_template,
-    submit_execution_message,
 )
 
 
@@ -42,7 +41,6 @@ def create_executor_agent() -> Agent:
         list_dynamic_tools,  # List available tools
         execute_shell_command,  # Shell operations
         get_tool_template,  # Get templates for tool creation
-        submit_execution_message,  # HCS-10 coordination
     ]
 
     agent = Agent(

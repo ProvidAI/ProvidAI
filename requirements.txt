@@ -1,9 +1,7 @@
 # Strands SDK and AI
-strands-sdk>=0.1.0
+strands
 anthropic>=0.39.0
 
-# Hedera SDK
-hedera-sdk-python>=2.0.0
 
 # Web Framework
 fastapi>=0.115.0
