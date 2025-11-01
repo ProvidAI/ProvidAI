@@ -33,7 +33,7 @@ arxiv>=2.0.0  # ArXiv API client
 semanticscholar>=0.3.0  # Semantic Scholar API
 biopython>=1.83  # For PubMed access (optional)
 networkx>=3.0  # For task graph generation
-ipfshttpclient>=0.8.0  # IPFS integration (optional)
+ipfshttpclient  # IPFS integration (optional)
 python-docx>=1.0.0  # Document generation
 reportlab>=4.0.0  # PDF generation (optional)
 
