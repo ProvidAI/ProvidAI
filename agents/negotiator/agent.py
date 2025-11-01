@@ -6,13 +6,13 @@ from anthropic import Anthropic
 
 from .system_prompt import NEGOTIATOR_SYSTEM_PROMPT
 from .tools import (
-    discover_agents_by_capability,
-    get_agent_details,
-    evaluate_agent_pricing,
+    search_agents_by_domain,
+    search_agents_by_address,
+    find_top_agents,
+    get_agent_details_by_id,
     create_payment_request,
     authorize_payment,
     get_payment_status,
-    submit_negotiation_message,
 )
 
 
@@ -32,13 +32,13 @@ def create_negotiator_agent() -> Agent:
     client = Anthropic(api_key=api_key)
 
     tools = [
-        discover_agents_by_capability,
-        get_agent_details,
-        evaluate_agent_pricing,
+        search_agents_by_domain,
+        search_agents_by_address,
+        find_top_agents,
+        get_agent_details_by_id,
         create_payment_request,
         authorize_payment,
         get_payment_status,
-        submit_negotiation_message,
     ]
 
     agent = Agent(
