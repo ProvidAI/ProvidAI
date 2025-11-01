@@ -2,11 +2,17 @@
 
 import os
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict, List, cast
 from decimal import Decimal
 
 from shared.hedera import get_hedera_client
-from shared.protocols import X402Payment, PaymentRequest
+from shared.protocols import (
+    X402Payment,
+    PaymentRequest,
+    build_payment_authorized_message,
+    build_payment_proposal_message,
+    new_thread_id,
+)
 from shared.database import SessionLocal, Payment
 from shared.database.models import PaymentStatus as DBPaymentStatus
 
@@ -41,8 +47,53 @@ async def create_payment_request(
         if not from_account:
             raise ValueError("HEDERA_ACCOUNT_ID not configured")
 
+        marketplace_treasury = os.getenv("TASK_ESCROW_MARKETPLACE_TREASURY", "").strip()
+        default_verifiers = os.getenv("TASK_ESCROW_DEFAULT_VERIFIERS", "").strip()
+        verifier_addresses: List[str] = [
+            addr.strip()
+            for addr in default_verifiers.split(",")
+            if addr.strip()
+        ]
+        if not verifier_addresses and marketplace_treasury:
+            verifier_addresses.append(marketplace_treasury)
+
+        approvals_required = int(os.getenv("TASK_ESCROW_DEFAULT_APPROVALS", "1") or 1)
+        if approvals_required > len(verifier_addresses) and verifier_addresses:
+            approvals_required = len(verifier_addresses)
+
+        marketplace_fee_bps = int(os.getenv("TASK_ESCROW_MARKETPLACE_FEE_BPS", "0") or 0)
+        verifier_fee_bps = int(os.getenv("TASK_ESCROW_VERIFIER_FEE_BPS", "0") or 0)
+
         # Create payment record
-        payment = Payment(
+        thread_id = new_thread_id(task_id, payment_id)
+        metadata: Dict[str, Any] = {
+            "task_id": task_id,
+            "description": description,
+            "to_hedera_account": to_hedera_account,
+            "worker_address": to_hedera_account,
+            "verifier_addresses": verifier_addresses,
+            "approvals_required": approvals_required,
+            "marketplace_fee_bps": marketplace_fee_bps,
+            "verifier_fee_bps": verifier_fee_bps,
+            "a2a_thread_id": thread_id,
+        }
+
+        proposal_message = build_payment_proposal_message(
+            payment_id=payment_id,
+            task_id=task_id,
+            amount=Decimal(str(amount)),
+            currency="HBAR",
+            from_agent=from_agent_id,
+            to_agent=to_agent_id,
+            verifier_addresses=verifier_addresses,
+            approvals_required=approvals_required or 1,
+            marketplace_fee_bps=marketplace_fee_bps,
+            verifier_fee_bps=verifier_fee_bps,
+            thread_id=thread_id,
+        )
+        metadata["a2a_messages"] = {"proposal": proposal_message.to_dict()}
+
+        payment = Payment(  # type: ignore[call-arg]
             id=payment_id,
             task_id=task_id,
             from_agent_id=from_agent_id,
@@ -50,7 +101,7 @@ async def create_payment_request(
             amount=amount,
             currency="HBAR",
             status=DBPaymentStatus.PENDING,
-            metadata={"to_hedera_account": to_hedera_account, "description": description},
+            metadata=metadata,
         )
 
         db.add(payment)
@@ -66,6 +117,10 @@ async def create_payment_request(
             "currency": "HBAR",
             "status": "pending",
             "description": description,
+            "a2a": {
+                "thread_id": thread_id,
+                "proposal_message": proposal_message.to_dict(),
+            },
         }
     finally:
         db.close()
@@ -95,20 +150,45 @@ async def authorize_payment(payment_id: str) -> Dict[str, Any]:
         x402 = X402Payment(hedera_client)
 
         # Create payment request object
+        payment_row: Any = payment
+        metadata = dict(cast(Dict[str, Any], payment_row.metadata or {}))
+        thread_id = metadata.get("a2a_thread_id") or new_thread_id(
+            str(payment_row.task_id),
+            payment_id,
+        )
         payment_request = PaymentRequest(
             payment_id=payment_id,
             from_account=os.getenv("HEDERA_ACCOUNT_ID", ""),
-            to_account=payment.metadata.get("to_hedera_account", ""),
+            to_account=metadata.get("to_hedera_account", ""),
             amount=Decimal(str(payment.amount)),
-            description=payment.metadata.get("description", ""),
+            description=metadata.get("description", ""),
+            metadata=metadata,
         )
 
-        # Authorize (for now, just generates authorization ID)
+        # Authorize by creating escrow on-chain
         auth_id = await x402.authorize_payment(payment_request)
 
         # Update payment record
-        payment.authorization_id = auth_id
-        payment.status = DBPaymentStatus.AUTHORIZED
+        payment_row.authorization_id = auth_id
+        payment_row.transaction_id = auth_id
+        payment_row.status = DBPaymentStatus.AUTHORIZED
+
+        authorized_message = build_payment_authorized_message(
+            payment_id=payment_id,
+            task_id=str(payment_row.task_id),
+            amount=Decimal(str(payment.amount)),
+            currency=str(payment_row.currency),
+            from_agent=str(payment_row.from_agent_id),
+            to_agent=str(payment_row.to_agent_id),
+            transaction_id=auth_id,
+            thread_id=thread_id,
+        )
+
+        messages = dict(cast(Dict[str, Any], metadata.get("a2a_messages") or {}))
+        messages["authorized"] = authorized_message.to_dict()
+        metadata["a2a_thread_id"] = thread_id
+        metadata["a2a_messages"] = messages
+        payment_row.metadata = metadata
 
         db.commit()
         db.refresh(payment)
@@ -118,6 +198,10 @@ async def authorize_payment(payment_id: str) -> Dict[str, Any]:
             "authorization_id": auth_id,
             "status": "authorized",
             "message": "Payment authorized. Waiting for verification to release funds.",
+            "a2a": {
+                "thread_id": thread_id,
+                "authorized_message": authorized_message.to_dict(),
+            },
         }
     finally:
         db.close()
@@ -140,16 +224,32 @@ async def get_payment_status(payment_id: str) -> Dict[str, Any]:
         if not payment:
             raise ValueError(f"Payment {payment_id} not found")
 
+        payment_row: Any = payment
+        metadata = dict(cast(Dict[str, Any], payment_row.metadata or {}))
+        a2a_info = None
+        thread_id = metadata.get("a2a_thread_id")
+        if thread_id or metadata.get("a2a_messages"):
+            a2a_info = {
+                "thread_id": thread_id,
+                "messages": metadata.get("a2a_messages", {}),
+            }
+
+        completed_at_value = payment_row.completed_at
+        completed_at_iso = (
+            completed_at_value.isoformat() if completed_at_value is not None else None
+        )
+
         return {
-            "payment_id": payment.id,
-            "task_id": payment.task_id,
-            "status": payment.status.value,
-            "amount": payment.amount,
-            "currency": payment.currency,
-            "transaction_id": payment.transaction_id,
-            "authorization_id": payment.authorization_id,
-            "created_at": payment.created_at.isoformat(),
-            "completed_at": payment.completed_at.isoformat() if payment.completed_at else None,
+            "payment_id": str(payment_row.id),
+            "task_id": str(payment_row.task_id),
+            "status": payment_row.status.value,
+            "amount": float(payment_row.amount),
+            "currency": str(payment_row.currency),
+            "transaction_id": payment_row.transaction_id,
+            "authorization_id": payment_row.authorization_id,
+            "created_at": payment_row.created_at.isoformat(),
+            "completed_at": completed_at_iso,
+            "a2a": a2a_info,
         }
     finally:
         db.close()
