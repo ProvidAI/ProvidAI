@@ -85,7 +85,7 @@ async def negotiator_agent(
     task_id: str,
     capability_requirements: str,
     budget_limit: Optional[float] = None,
-    min_reputation_score: Optional[float] = 0.7,
+    min_reputation_score: Optional[float] = 0.2,
 ) -> Dict[str, Any]:
     """
     Discover and negotiate with marketplace agents using ERC-8004 protocol.
@@ -239,64 +239,61 @@ async def executor_agent(
     execution_parameters: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Execute tasks using dynamically created tools from marketplace agent metadata.
+    Execute tasks using LOCAL research agents only.
 
-    This agent implements META-TOOLING:
-    - Receives agent metadata from negotiator
-    - Generates Python code for API integration at runtime
-    - Loads and executes dynamic tools
-    - Handles retries and error recovery
-
-    Args:
-        task_id: Unique identifier for the task
-        agent_metadata: Metadata from discovered agent (API specs, auth, etc.)
-        task_description: Detailed description of what to execute
-        execution_parameters: Additional parameters for execution (optional)
-
-    Returns:
-        Dict containing:
-        - execution_result: Result from the executed task
-        - dynamic_tools_created: List of tools generated
-        - execution_log: Execution details and any retries
+    Updated Behavior:
+    - Ignore marketplace agent metadata
+    - ALWAYS list local agents first
+    - Select the most relevant local agent
+    - Execute using execute_local_agent
     """
+
     try:
         # Update progress: executor started
         update_progress(task_id, "executor", "running", {
-            "message": "Executing task with selected agent",
-            "agent_metadata": agent_metadata
+            "message": "Executing task using local agent flow",
+            "agent_metadata_ignored": agent_metadata  # logged for traceability
         })
 
-        params_str = (
-            f"\nExecution Parameters: {execution_parameters}"
-            if execution_parameters
-            else ""
-        )
+        params_str = f"\nExecution Parameters: {execution_parameters}" if execution_parameters else ""
 
+        # Updated LOCAL-ONLY prompt
         query = f"""
         Task ID: {task_id}
-
-        Agent Metadata:
-        {agent_metadata}
 
         Task Description:
         {task_description}
         {params_str}
 
-        Please:
-        1. Analyze the agent metadata and API specifications
-        2. Create dynamic tools using create_dynamic_tool for API integration
-        3. Load and execute the tools with appropriate parameters
-        4. Handle any errors with retries if needed
+        IMPORTANT: Ignore all metadata. Do NOT analyze it or reference it.
 
-        Return the execution results, list of created tools, and execution log.
+        You MUST follow this workflow EXACTLY:
+
+        1. CALL list_local_agents to view all available local agents
+        2. Select the BEST agent for this task
+        3. CALL execute_local_agent with:
+            - agent_domain (the selected agent)
+            - task_description
+            - context: include task_id and execution_parameters if provided
+
+        RULES:
+        - You MUST call the tools, not describe them
+        - You MUST show results of tool calls
+        - Do NOT create or reference dynamic tools
+        - Do NOT reference agent_metadata at all
+
+        Return:
+        - execution_result from the executed local agent
+        - selected_agent used
+        - execution_log of the steps taken
         """
 
+        # A2A transport attempt first
         client = _get_a2a_client("EXECUTOR_A2A_URL")
         if client:
             try:
                 response_text = await client.invoke_text(
-                    query,
-                    metadata={"task_id": task_id} if task_id else None,
+                    query, metadata={"task_id": task_id} if task_id else None
                 )
                 return {
                     "success": True,
@@ -311,8 +308,10 @@ async def executor_agent(
                     exc,
                 )
 
+        # Local execution
         api_key = get_openai_api_key()
         model = os.getenv("EXECUTOR_MODEL", "gpt-4-turbo-preview")
+
         agent = create_openai_agent(
             api_key=api_key,
             model=model,
@@ -320,17 +319,12 @@ async def executor_agent(
             tools=[
                 execute_local_agent,
                 list_local_agents,
-                create_dynamic_tool,
-                load_and_execute_tool,
-                list_dynamic_tools,
-                execute_shell_command,
-                get_tool_template,
             ],
         )
 
         response = await agent.run(query)
 
-        # Log the full executor response
+        # Log executor response
         logger.info("[executor_agent] ===== EXECUTOR RESPONSE START =====")
         logger.info(f"[executor_agent] {response}")
         logger.info("[executor_agent] ===== EXECUTOR RESPONSE END =====")
@@ -349,7 +343,6 @@ async def executor_agent(
         }
 
     except Exception as e:
-        # Update progress: executor failed
         update_progress(task_id, "executor", "failed", {
             "message": "Task execution failed",
             "error": str(e)
@@ -360,7 +353,6 @@ async def executor_agent(
             "task_id": task_id,
             "error": str(e),
         }
-
 
 @tool
 async def verifier_agent(

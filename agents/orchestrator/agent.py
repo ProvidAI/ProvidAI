@@ -41,7 +41,6 @@ def create_orchestrator_agent() -> Agent:
         negotiator_agent,
         authorize_payment_request,
         executor_agent,
-        verifier_agent,
     ]
 
     # Create agent with OpenAI

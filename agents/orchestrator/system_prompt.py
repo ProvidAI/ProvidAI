@@ -45,11 +45,6 @@ STEP 5: EXECUTION
 - The executor will create dynamic tools from the agent's API specs and execute the task
 - Pass clear task_description and any execution_parameters
 
-STEP 6: VERIFICATION
-- Call verifier_agent with the execution results
-- Provide verification_criteria based on the original requirements
-- The verifier will validate quality and release payment if checks pass
-
 ## Available Tools
 
 **Task Management:**
@@ -105,7 +100,6 @@ User Request: "Analyze sales data and create visualizations"
 
 5. Call executor_agent with the selected agent's metadata
 
-6. Call verifier_agent to validate outputs and release payment
 
 ## Important Guidelines
 
@@ -123,7 +117,6 @@ After planning, you MUST immediately call:
 1. negotiator_agent() with specific requirements
 2. Review the result, then call authorize_payment_request() if approved
 3. executor_agent() with agent metadata
-4. verifier_agent() with execution results
 
 Example of what NOT to do:
 ❌ "Next, I will call negotiator_agent..." (this is just text, not a tool call!)
