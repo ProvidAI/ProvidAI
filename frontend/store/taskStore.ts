@@ -51,29 +51,37 @@ export interface TaskResult {
   report?: string;
 }
 
+export interface ProgressLog {
+  step: string;
+  status: string;
+  timestamp: string;
+  data?: any;
+}
+
 interface TaskState {
   // Status
   status: TaskStatus;
   taskId: string | null;
-  
+
   // Task details
   description: string;
   uploadedFile: File | null;
-  
+
   // Planning
   plan: TaskPlan | null;
   todoList: string[];
-  
+
   // Negotiation
   selectedAgent: SelectedAgent | null;
   paymentDetails: PaymentDetails | null;
-  
+
   // Execution
   executionLogs: ExecutionLog[];
-  
+  progressLogs: ProgressLog[];
+
   // Results
   result: TaskResult | null;
-  
+
   // Error
   error: string | null;
   
@@ -87,6 +95,7 @@ interface TaskState {
   setSelectedAgent: (agent: SelectedAgent | null) => void;
   setPaymentDetails: (payment: PaymentDetails | null) => void;
   addExecutionLog: (log: ExecutionLog) => void;
+  setProgressLogs: (logs: ProgressLog[]) => void;
   setResult: (result: TaskResult) => void;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -102,13 +111,14 @@ const initialState = {
   selectedAgent: null,
   paymentDetails: null,
   executionLogs: [],
+  progressLogs: [],
   result: null,
   error: null,
 };
 
 export const useTaskStore = create<TaskState>((set) => ({
   ...initialState,
-  
+
   setStatus: (status) => set({ status }),
   setTaskId: (taskId) => set({ taskId }),
   setDescription: (description) => set({ description }),
@@ -120,6 +130,7 @@ export const useTaskStore = create<TaskState>((set) => ({
   addExecutionLog: (log) => set((state) => ({
     executionLogs: [...state.executionLogs, log],
   })),
+  setProgressLogs: (progressLogs) => set({ progressLogs }),
   setResult: (result) => set({ result }),
   setError: (error) => set({ error }),
   reset: () => set(initialState),

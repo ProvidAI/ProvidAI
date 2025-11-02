@@ -35,27 +35,40 @@ async def fetch_metadata_from_uri(metadata_uri: str) -> Dict[str, Any]:
             "license": str
         }
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     try:
+        logger.info(f"[fetch_metadata_from_uri] Fetching metadata from: {metadata_uri}")
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(metadata_uri)
+            logger.info(f"[fetch_metadata_from_uri] HTTP Status: {response.status_code}")
+
             response.raise_for_status()
             metadata = response.json()
-            
+
+            logger.info(f"[fetch_metadata_from_uri] Successfully fetched metadata")
+            logger.info(f"[fetch_metadata_from_uri] Metadata keys: {list(metadata.keys())}")
+
             return {
                 "success": True,
                 "metadata": metadata,
             }
     except httpx.HTTPError as e:
+        logger.error(f"[fetch_metadata_from_uri] HTTP error: {e}", exc_info=True)
         return {
             "success": False,
             "error": f"HTTP error fetching metadata: {str(e)}",
         }
     except json.JSONDecodeError as e:
+        logger.error(f"[fetch_metadata_from_uri] JSON decode error: {e}", exc_info=True)
         return {
             "success": False,
             "error": f"Invalid JSON in metadata: {str(e)}",
         }
     except Exception as e:
+        logger.error(f"[fetch_metadata_from_uri] Unexpected error: {e}", exc_info=True)
         return {
             "success": False,
             "error": f"Error fetching metadata: {str(e)}",

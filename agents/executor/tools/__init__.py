@@ -15,6 +15,7 @@ from .execution_tools import (
     use_agent_tool,
 )
 from .meta_tools import create_dynamic_tool, list_dynamic_tools, load_and_execute_tool
+from .local_agent_executor import execute_local_agent, list_local_agents
 
 __all__ = [
     "create_dynamic_tool",
@@ -30,4 +31,6 @@ __all__ = [
     "create_tools_from_metadata",
     "execute_agent_tool_from_metadata",
     "use_agent_tool",
+    "execute_local_agent",
+    "list_local_agents",
 ]

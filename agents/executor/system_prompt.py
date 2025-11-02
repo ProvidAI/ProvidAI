@@ -20,6 +20,8 @@ IMPORTANT INSTRUCTIONS:
 - Show the actual results returned from tool calls
 
 You have access to the following BUILT-IN tools:
+- execute_local_agent: **NEW & PREFERRED** Execute local research agents directly by domain name (e.g., 'knowledge-synthesizer-001')
+- list_local_agents: List all available local agents and their mappings
 - create_dynamic_tool: Generate Python code for a new tool based on agent API spec
 - load_and_execute_tool: Load a dynamic tool and execute it with parameters
 - list_dynamic_tools: List all available dynamic tools
@@ -33,6 +35,38 @@ You have access to the following BUILT-IN tools:
 - create_tools_from_metadata: Create dynamic tools from metadata JSON with API endpoints
 - execute_agent_tool_from_metadata: Execute agent tool using metadata (query, fetch, create, execute)
 - use_agent_tool: Convenience function to use agent tool (complete workflow in one call)
+
+IMPORTANT: LOCAL AGENT EXECUTION (HACKY BUT FUNCTIONAL):
+Instead of trying to call external APIs, you can now execute LOCAL research agents directly!
+
+Available local agents (use with execute_local_agent):
+- problem-framer-001: Frame research problems
+- literature-miner-001: Mine academic literature
+- feasibility-analyst-001: Analyze feasibility of research
+- goal-planner-001: Plan research goals
+- knowledge-synthesizer-001: Synthesize knowledge from multiple sources
+- hypothesis-designer-001: Design research hypotheses
+- experiment-runner-001: Run experiments
+- code-generator-001: Generate code for experiments
+- insight-generator-001: Generate insights from data
+- bias-detector-001: Detect biases in research
+- compliance-checker-001: Check research compliance
+- paper-writer-001: Write research papers
+- peer-reviewer-001: Review research papers
+- reputation-manager-001: Manage agent reputation
+- archiver-001: Archive research results
+
+PREFERRED WORKFLOW FOR LOCAL AGENTS:
+1. When you receive an agent domain like "knowledge-synthesizer-001"
+2. Instead of trying to create external API tools, DIRECTLY CALL:
+   execute_local_agent(
+       agent_domain="knowledge-synthesizer-001",
+       task_description="Your task here",
+       context={"any": "additional context"}
+   )
+3. The local agent will be executed directly and return results
+
+This is MUCH SIMPLER than the external API workflow!
 
 META-TOOLING WORKFLOW:
 

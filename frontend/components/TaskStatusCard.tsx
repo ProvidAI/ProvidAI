@@ -21,19 +21,9 @@ const statusConfig: Record<TaskStatus, { label: string; progress: number; icon: 
 }
 
 export function TaskStatusCard() {
-  const { status, plan, selectedAgent, executionLogs, result, error } = useTaskStore()
+  const { status, plan, selectedAgent, executionLogs, result, error, progressLogs } = useTaskStore()
 
   const config = statusConfig[status]
-
-  const steps = [
-    { label: 'Analyzing request...', completed: ['PLANNING', 'APPROVING_PLAN', 'NEGOTIATING', 'PAYING', 'EXECUTING', 'VERIFYING', 'COMPLETE'].includes(status) },
-    { label: 'Breaking down into subtasks...', completed: ['APPROVING_PLAN', 'NEGOTIATING', 'PAYING', 'EXECUTING', 'VERIFYING', 'COMPLETE'].includes(status) },
-    { label: plan ? 'Plan approved' : 'Plan approved', completed: plan !== null },
-    { label: selectedAgent ? `Payment of $${selectedAgent.price} sent` : 'Payment sent', completed: selectedAgent !== null },
-    { label: 'Agent is executing task...', completed: ['EXECUTING', 'VERIFYING', 'COMPLETE'].includes(status) },
-    { label: 'Execution complete', completed: ['VERIFYING', 'COMPLETE'].includes(status) },
-    { label: 'Verifier is validating output quality...', completed: ['VERIFYING', 'COMPLETE'].includes(status) },
-  ]
 
   return (
     <Card>
@@ -42,29 +32,73 @@ export function TaskStatusCard() {
           {config.icon}
           Status: {config.label}
         </CardTitle>
-        <CardDescription>Task progress and status updates</CardDescription>
+        <CardDescription>Real-time execution logs and progress</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Progress value={config.progress} className="h-2" />
 
-        <div className="space-y-2">
-          {steps.map((step, index) => (
-            <div
-              key={index}
-              className={cn(
-                'flex items-center gap-2 text-sm',
-                step.completed ? 'text-green-600' : 'text-muted-foreground'
-              )}
-            >
-              {step.completed ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-              ) : (
-                <Circle className="h-4 w-4" />
-              )}
-              <span>{step.label}</span>
+        {/* Real-time progress logs from backend */}
+        {progressLogs && progressLogs.length > 0 && (
+          <div className="space-y-2 max-h-80 overflow-y-auto rounded-lg bg-slate-50 p-4">
+            <h4 className="font-semibold text-sm text-slate-700 mb-2">Execution Progress:</h4>
+            <div className="space-y-2">
+              {progressLogs.map((log, index) => {
+                const isCompleted = log.status === 'completed' || log.status === 'success';
+                const isFailed = log.status === 'failed' || log.status === 'error';
+                const isRunning = log.status === 'running' || log.status === 'started';
+
+                return (
+                  <div
+                    key={index}
+                    className={cn(
+                      'flex items-start gap-2 text-sm p-2 rounded border',
+                      isCompleted && 'bg-green-50 border-green-200',
+                      isFailed && 'bg-red-50 border-red-200',
+                      isRunning && 'bg-blue-50 border-blue-200',
+                      !isCompleted && !isFailed && !isRunning && 'bg-slate-100 border-slate-200'
+                    )}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                    ) : isFailed ? (
+                      <XCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    ) : isRunning ? (
+                      <Loader2 className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0 animate-spin" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={cn(
+                          "font-semibold",
+                          isCompleted && 'text-green-700',
+                          isFailed && 'text-red-700',
+                          isRunning && 'text-blue-700',
+                          !isCompleted && !isFailed && !isRunning && 'text-slate-700'
+                        )}>
+                          [{log.step}]
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      {log.data?.message && (
+                        <p className="text-slate-600 mt-1 text-xs">
+                          {log.data.message}
+                        </p>
+                      )}
+                      {log.data?.error && (
+                        <p className="text-red-600 mt-1 text-xs font-mono">
+                          Error: {log.data.error}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
         {plan && (
           <div className="mt-4 p-4 bg-muted rounded-lg">

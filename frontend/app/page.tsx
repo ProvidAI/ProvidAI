@@ -94,6 +94,7 @@ export default function Home() {
     setSelectedAgent,
     setPaymentDetails,
     addExecutionLog,
+    setProgressLogs,
     setResult,
     setError,
     reset,
@@ -191,6 +192,24 @@ export default function Home() {
       try {
         const task = await pollTaskStatus(taskId)
 
+        // Update progress logs from API
+        if (task.progress && Array.isArray(task.progress)) {
+          setProgressLogs(task.progress)
+        }
+
+        // Determine status from progress logs
+        const lastProgress = task.progress?.[task.progress.length - 1]
+        if (lastProgress) {
+          // Map backend progress to frontend status
+          if (lastProgress.step === 'negotiator') {
+            setStatus('NEGOTIATING')
+          } else if (lastProgress.step === 'executor') {
+            setStatus('EXECUTING')
+          } else if (lastProgress.step === 'verifier') {
+            setStatus('VERIFYING')
+          }
+        }
+
         if (task.status === 'completed') {
           setStatus('COMPLETE')
           setResult({
@@ -203,19 +222,9 @@ export default function Home() {
           setStatus('FAILED')
           setResult({
             success: false,
-            error: 'Task execution failed',
+            error: task.error || 'Task execution failed',
           })
           return
-        } else if (task.status === 'in_progress' || task.status === 'assigned') {
-          const storeStatus = useTaskStore.getState().status
-          if (storeStatus !== 'EXECUTING' && storeStatus !== 'VERIFYING') {
-            setStatus('EXECUTING')
-            addExecutionLog({
-              timestamp: new Date().toLocaleTimeString(),
-              message: 'Task execution started',
-              source: 'executor',
-            })
-          }
         }
 
         attempts++

@@ -17,6 +17,8 @@ from agents.executor.tools import (
     get_tool_template,
     list_dynamic_tools,
     load_and_execute_tool,
+    execute_local_agent,
+    list_local_agents,
 )
 
 # Import system prompts
@@ -320,6 +322,8 @@ async def executor_agent(
             model=model,
             system_prompt=EXECUTOR_SYSTEM_PROMPT,
             tools=[
+                execute_local_agent,
+                list_local_agents,
                 create_dynamic_tool,
                 load_and_execute_tool,
                 list_dynamic_tools,

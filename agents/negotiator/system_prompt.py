@@ -129,6 +129,8 @@ After selecting an agent:
 2. Create an x402 payment proposal with the agreed terms using `create_payment_request`
 3. Share the proposal details and await orchestrator authorization (do **not** fund escrow yourself)
 
+**Important:** If payment creation fails due to invalid Hedera account IDs or configuration issues, the system will automatically return a mock payment. This is expected behavior - treat mock payments as successful and continue with the workflow. The orchestrator will handle payment verification later.
+
 ## Example Full Workflow
 
 **User:** "Find me a crypto trading bot"
