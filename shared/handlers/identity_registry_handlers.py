@@ -70,6 +70,27 @@ def _ensure_registry() -> None:
         )
 
 
+def _coerce_agent_id(agent_id: Any) -> int:
+    """Normalize agent IDs from various inputs to an int for contract calls."""
+
+    if isinstance(agent_id, int):
+        return agent_id
+
+    if isinstance(agent_id, str):
+        stripped = agent_id.strip()
+        if not stripped:
+            raise ValueError("Empty agent_id")
+
+        base = 16 if stripped.lower().startswith("0x") else 10
+        return int(stripped, base)
+
+    if agent_id is None:
+        raise ValueError("agent_id is None")
+
+    # Fall back to Python's int conversion for other numeric inputs.
+    return int(agent_id)
+
+
 # -------- WRITE FUNCTIONS --------
 def register_agent(domain: str, agent_address: str = None):
     _ensure_registry()
@@ -118,13 +139,17 @@ def update_agent(agent_id: int, new_domain: str = "", new_address: str = ""):
 
 
 # -------- READ FUNCTIONS --------
-def get_agent(agent_id: int):
+def get_agent(agent_id: int | str):
     _ensure_registry()
     try:
-        if not agent_exists(agent_id):
+        normalized_id = _coerce_agent_id(agent_id)
+        if not agent_exists(normalized_id):
             return None
-        agent = IDENTITY_REGISTRY.functions.getAgent(agent_id).call()
+        agent = IDENTITY_REGISTRY.functions.getAgent(normalized_id).call()
         return agent
+    except ValueError as exc:
+        logger.debug("Invalid agent_id %s: %s", agent_id, exc)
+        return None
     except ContractLogicError as exc:  # pragma: no cover - optional dependency
         logger.debug("getAgent(%s) reverted: %s", agent_id, exc)
         return None
@@ -176,23 +201,33 @@ def get_agent_count():
     return IDENTITY_REGISTRY.functions.getAgentCount().call()
 
 
-def agent_exists(agent_id: int):
+def agent_exists(agent_id: int | str):
     _ensure_registry()
-    return IDENTITY_REGISTRY.functions.agentExists(agent_id).call()
+    try:
+        normalized_id = _coerce_agent_id(agent_id)
+    except ValueError as exc:
+        logger.debug("Invalid agent_id %s: %s", agent_id, exc)
+        return False
+
+    return IDENTITY_REGISTRY.functions.agentExists(normalized_id).call()
 
 
 # -------- ERC8004 EXTENDED FUNCTIONS --------
-def get_agent_reputation(agent_id: int):
+def get_agent_reputation(agent_id: int | str):
     """
     Get an agent's reputation score.
     Returns 0 if ReputationRegistry is not set.
     """
     _ensure_registry()
     try:
-        if not agent_exists(agent_id):
+        normalized_id = _coerce_agent_id(agent_id)
+        if not agent_exists(normalized_id):
             return None
-        score = IDENTITY_REGISTRY.functions.getAgentReputation(agent_id).call()
+        score = IDENTITY_REGISTRY.functions.getAgentReputation(normalized_id).call()
         return score
+    except ValueError as exc:
+        logger.debug("Invalid agent_id %s: %s", agent_id, exc)
+        return None
     except ContractLogicError as exc:  # pragma: no cover - optional dependency
         logger.debug("getAgentReputation(%s) reverted: %s", agent_id, exc)
         return None
@@ -201,7 +236,7 @@ def get_agent_reputation(agent_id: int):
         return None
 
 
-def get_agent_vote_counts(agent_id: int):
+def get_agent_vote_counts(agent_id: int | str):
     """
     Get vote counts for an agent.
     Returns (upVotes, downVotes).
@@ -209,10 +244,14 @@ def get_agent_vote_counts(agent_id: int):
     """
     _ensure_registry()
     try:
-        if not agent_exists(agent_id):
+        normalized_id = _coerce_agent_id(agent_id)
+        if not agent_exists(normalized_id):
             return None
-        up_votes, down_votes = IDENTITY_REGISTRY.functions.getAgentVoteCounts(agent_id).call()
+        up_votes, down_votes = IDENTITY_REGISTRY.functions.getAgentVoteCounts(normalized_id).call()
         return {"upVotes": up_votes, "downVotes": down_votes}
+    except ValueError as exc:
+        logger.debug("Invalid agent_id %s: %s", agent_id, exc)
+        return None
     except ContractLogicError as exc:  # pragma: no cover - optional dependency
         logger.debug("getAgentVoteCounts(%s) reverted: %s", agent_id, exc)
         return None
@@ -221,7 +260,7 @@ def get_agent_vote_counts(agent_id: int):
         return None
 
 
-def get_agent_validation(agent_id: int):
+def get_agent_validation(agent_id: int | str):
     """
     Get validation data for an agent.
     Returns (validationCount, averageScore).
@@ -229,10 +268,14 @@ def get_agent_validation(agent_id: int):
     """
     _ensure_registry()
     try:
-        if not agent_exists(agent_id):
+        normalized_id = _coerce_agent_id(agent_id)
+        if not agent_exists(normalized_id):
             return None
-        validation_count, average_score = IDENTITY_REGISTRY.functions.getAgentValidation(agent_id).call()
+        validation_count, average_score = IDENTITY_REGISTRY.functions.getAgentValidation(normalized_id).call()
         return {"validationCount": validation_count, "averageScore": average_score}
+    except ValueError as exc:
+        logger.debug("Invalid agent_id %s: %s", agent_id, exc)
+        return None
     except ContractLogicError as exc:  # pragma: no cover - optional dependency
         logger.debug("getAgentValidation(%s) reverted: %s", agent_id, exc)
         return None
@@ -241,7 +284,7 @@ def get_agent_validation(agent_id: int):
         return None
 
 
-def get_agent_full_info(agent_id: int):
+def get_agent_full_info(agent_id: int | str):
     """
     Get comprehensive agent information including identity, reputation, and validation.
     Returns:
@@ -254,9 +297,10 @@ def get_agent_full_info(agent_id: int):
     """
     _ensure_registry()
     try:
-        if not agent_exists(agent_id):
+        normalized_id = _coerce_agent_id(agent_id)
+        if not agent_exists(normalized_id):
             return None
-        result = IDENTITY_REGISTRY.functions.getAgentFullInfo(agent_id).call()
+        result = IDENTITY_REGISTRY.functions.getAgentFullInfo(normalized_id).call()
         agent_info, reputation_score, up_votes, down_votes, validation_count, validation_score = result
 
         return {
@@ -271,6 +315,9 @@ def get_agent_full_info(agent_id: int):
             "validationCount": validation_count,
             "validationScore": validation_score
         }
+    except ValueError as exc:
+        logger.debug("Invalid agent_id %s: %s", agent_id, exc)
+        return None
     except ContractLogicError as exc:  # pragma: no cover - optional dependency
         logger.debug("getAgentFullInfo(%s) reverted: %s", agent_id, exc)
         return None
