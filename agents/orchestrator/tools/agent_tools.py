@@ -178,6 +178,11 @@ async def negotiator_agent(
 
         response = await agent.run(query)
 
+        # Log the full negotiator response
+        logger.info("[negotiator_agent] ===== NEGOTIATOR RESPONSE START =====")
+        logger.info(f"[negotiator_agent] {response}")
+        logger.info("[negotiator_agent] ===== NEGOTIATOR RESPONSE END =====")
+
         # Update progress: negotiator completed
         update_progress(task_id, "negotiator", "completed", {
             "message": "Agent negotiation completed",
@@ -325,6 +330,11 @@ async def executor_agent(
 
         response = await agent.run(query)
 
+        # Log the full executor response
+        logger.info("[executor_agent] ===== EXECUTOR RESPONSE START =====")
+        logger.info(f"[executor_agent] {response}")
+        logger.info("[executor_agent] ===== EXECUTOR RESPONSE END =====")
+
         # Update progress: executor completed
         update_progress(task_id, "executor", "completed", {
             "message": "Task execution completed",
@@ -466,6 +476,11 @@ async def verifier_agent(
 
         response = await agent.run(query)
 
+        # Log the full verifier response
+        logger.info("[verifier_agent] ===== VERIFIER RESPONSE START =====")
+        logger.info(f"[verifier_agent] {response}")
+        logger.info("[verifier_agent] ===== VERIFIER RESPONSE END =====")
+
         return {
             "success": True,
             "task_id": task_id,
@@ -475,6 +490,7 @@ async def verifier_agent(
         }
 
     except Exception as e:
+        logger.error(f"[verifier_agent] Verification failed: {e}", exc_info=True)
         return {
             "success": False,
             "task_id": task_id,

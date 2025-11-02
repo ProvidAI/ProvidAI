@@ -266,6 +266,13 @@ async def execute_task(request: TaskRequest) -> TaskResponse:
 
         result = await orchestrator.run(query)
 
+        # Log the full orchestrator response
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("========== ORCHESTRATOR RESPONSE START ==========")
+        logger.info(f"{result}")
+        logger.info("========== ORCHESTRATOR RESPONSE END ==========")
+
         # Update final status
         update_task_progress(task_id, "orchestrator", "completed", {
             "message": "Task execution completed",
