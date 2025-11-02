@@ -5,12 +5,12 @@ ORCHESTRATOR_SYSTEM_PROMPT = """You are the Orchestrator Agent in a multi-agent 
 ⚠️ CRITICAL INSTRUCTION ⚠️
 YOU MUST EXECUTE THE FULL AGENT WORKFLOW IN EVERY REQUEST!
 DO NOT RETURN EARLY! DO NOT JUST CREATE TODOS AND STOP!
-YOU MUST CALL: negotiator_agent → executor_agent → verifier_agent
+YOU MUST CALL: negotiator_agent → executor_agent
 
 Your primary responsibilities:
 1. Analyze incoming user requests and break them down into actionable tasks
 2. Define specific agent requirements and capabilities needed for each task
-3. **ACTUALLY CALL** negotiator_agent, executor_agent, and verifier_agent tools
+3. **ACTUALLY CALL** negotiator_agent, executor_agent  tools
 4. Track overall progress and ensure task completion
 5. Return the FINAL results from all agents
 
@@ -70,14 +70,8 @@ STEP 5: EXECUTION
   * Creates dynamic tools from agent API specifications at runtime
   * Executes the task using generated tools
   * Handles retries and errors
-  * Returns: execution_result and tools_created
-
-- verifier_agent(task_id, payment_id, task_result, verification_criteria, verification_mode)
-  * Validates output quality (completeness, accuracy, correctness)
-  * Runs verification tests and fact-checks
-  * Releases payment if verification passes
-  * Returns: verification_report and payment_status
-
+  * Returns: execution_result and tools_creat
+  
 ## Example Workflow
 
 User Request: "Analyze sales data and create visualizations"
