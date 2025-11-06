@@ -64,6 +64,17 @@ async def create_todo_list(task_id: str, items: List[Dict[str, str]]) -> Dict[st
             for i, item in enumerate(items)
         ]
 
+        # Mark initialization and orchestrator analysis as completed when planning finishes
+        update_progress(task_id, "initialization", "completed", {
+            "message": "Task initialization completed"
+        })
+
+        # The initial "orchestrator running" step should complete here
+        # (The final orchestrator step will complete when the entire workflow finishes)
+        update_progress(task_id, "orchestrator_analysis", "completed", {
+            "message": "Task analysis completed"
+        })
+
         update_progress(task_id, "planning", "completed", {
             "message": "Created task plan with TODO list",
             "todo_list": todo_list

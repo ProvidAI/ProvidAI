@@ -197,7 +197,7 @@ export default function Home() {
         if (lastProgress) {
           console.log('[pollTaskUpdates] Last progress step:', lastProgress.step, lastProgress.status)
           // Map backend progress to frontend status
-          if (lastProgress.step === 'initialization' || lastProgress.step === 'orchestrator') {
+          if (lastProgress.step === 'initialization' || lastProgress.step === 'orchestrator_analysis') {
             setStatus('PLANNING')
           } else if (lastProgress.step === 'planning') {
             setStatus('APPROVING_PLAN')

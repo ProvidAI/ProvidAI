@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import React, { useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
@@ -32,7 +32,7 @@ export function TaskStatusCard() {
   })
 
   // Group progress logs by step and keep only the latest status for each step
-  const latestProgressByStep = React.useMemo(() => {
+  const latestProgressByStep = useMemo(() => {
     if (!progressLogs || progressLogs.length === 0) return []
 
     const stepMap = new Map()
@@ -53,12 +53,10 @@ export function TaskStatusCard() {
         <CardDescription>Real-time execution logs and progress</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Progress value={config.progress} className="h-2" />
 
         {/* Real-time progress logs from backend */}
         {latestProgressByStep && latestProgressByStep.length > 0 && (
-          <div className="space-y-2 max-h-80 overflow-y-auto rounded-lg bg-slate-50 p-4">
-            <h4 className="font-semibold text-sm text-slate-700 mb-2">Execution Progress:</h4>
+          <div>
             <div className="space-y-2">
               {latestProgressByStep.map((log, index) => {
                 const isCompleted = log.status === 'completed' || log.status === 'success';

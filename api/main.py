@@ -246,7 +246,7 @@ async def run_orchestrator_task(task_id: str, request: TaskRequest):
         """
 
         # Run the orchestrator agent
-        update_task_progress(task_id, "orchestrator", "running", {
+        update_task_progress(task_id, "orchestrator_analysis", "running", {
             "message": "Orchestrator analyzing task and coordinating agents"
         })
 
