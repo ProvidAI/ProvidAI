@@ -32,12 +32,26 @@ export function TaskStatusCard() {
   })
 
   // Group progress logs by step and keep only the latest status for each step
+  // Merge data from multiple updates for the same step
   const latestProgressByStep = useMemo(() => {
     if (!progressLogs || progressLogs.length === 0) return []
 
     const stepMap = new Map()
     progressLogs.forEach(log => {
-      stepMap.set(log.step, log) // This will overwrite with the latest entry for each step
+      const existing = stepMap.get(log.step)
+      if (existing) {
+        // Merge data, keeping all fields from both updates
+        stepMap.set(log.step, {
+          ...existing,
+          ...log,
+          data: {
+            ...existing.data,
+            ...log.data
+          }
+        })
+      } else {
+        stepMap.set(log.step, log)
+      }
     })
 
     return Array.from(stepMap.values())

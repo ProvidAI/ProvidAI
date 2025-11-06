@@ -143,7 +143,7 @@ async def resolve_agent_by_domain(domain: str) -> Dict[str, Any]:
 
 
 @tool
-async def compare_agent_scores(agent_ids: List[int]) -> Dict[str, Any]:
+async def compare_agent_scores(agent_ids: List[int], task_id: str = None) -> Dict[str, Any]:
     """
     Compare reputation and validation scores for multiple agents.
 
@@ -160,6 +160,7 @@ async def compare_agent_scores(agent_ids: List[int]) -> Dict[str, Any]:
 
     Args:
         agent_ids: List of agent IDs to compare
+        task_id: Optional task ID for progress tracking
 
     Returns:
         {
@@ -270,8 +271,15 @@ async def compare_agent_scores(agent_ids: List[int]) -> Dict[str, Any]:
             "best_agent": agents_with_scores[0] if agents_with_scores else None
         }
 
-        # Send progress update with discovered agents (extract task_id from context if available)
-        # Note: We don't have task_id here, but the update_progress call will be made by the negotiator_agent caller
+        # Send progress update with discovered agents if task_id provided
+        if task_id:
+            from shared.task_progress import update_progress
+            update_progress(task_id, "negotiator", "running", {
+                "message": f"Discovered and ranked {len(agents_with_scores)} agents",
+                "ranked_agents": agents_with_scores,
+                "best_agent": agents_with_scores[0] if agents_with_scores else None
+            })
+
         return result
 
     except Exception as e:
