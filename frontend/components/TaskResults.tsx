@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useTaskStore } from '@/store/taskStore'
 import { CheckCircle2, XCircle, Download, Star } from 'lucide-react'
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 export function TaskResults() {
   const { result, selectedAgent, status } = useTaskStore()
@@ -55,7 +56,7 @@ export function TaskResults() {
         </CardTitle>
         <CardDescription>
           {result.success
-            ? `Payment: ${selectedAgent ? `$${selectedAgent.price.toFixed(2)} ${selectedAgent.currency}` : 'N/A'} has been released to ${selectedAgent?.name || 'agent'}`
+            ? `Payment has been released to ${selectedAgent?.name || 'agent'}`
             : `Rejected: Payment has been refunded to your wallet`}
         </CardDescription>
       </CardHeader>
@@ -69,10 +70,15 @@ export function TaskResults() {
 
         {result.data && (
           <div className="p-4 bg-muted rounded-lg">
-            <h4 className="font-semibold mb-2">Results:</h4>
-            <pre className="text-xs overflow-auto max-h-96">
-              {JSON.stringify(result.data, null, 2)}
-            </pre>
+            {result.data.orchestrator_response ? (
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown>{result.data.orchestrator_response}</ReactMarkdown>
+              </div>
+            ) : (
+              <pre className="text-xs overflow-auto max-h-96">
+                {JSON.stringify(result.data, null, 2)}
+              </pre>
+            )}
           </div>
         )}
 
