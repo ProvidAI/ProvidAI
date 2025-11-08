@@ -317,6 +317,32 @@ async def run_orchestrator_task(task_id: str, request: TaskRequest):
     logger = logging.getLogger(__name__)
 
     try:
+        # Create Task record in database for transaction history
+        from shared.database import SessionLocal
+        from shared.database.models import Task
+        from datetime import datetime
+
+        db = SessionLocal()
+        try:
+            task = Task(
+                id=task_id,
+                title=f"Research: {request.description[:50]}...",
+                description=request.description,
+                status="in_progress",
+                created_at=datetime.utcnow(),
+                meta={
+                    "budget_limit": request.budget_limit,
+                    "min_reputation_score": request.min_reputation_score,
+                    "verification_mode": request.verification_mode,
+                    "capability_requirements": request.capability_requirements,
+                }
+            )
+            db.add(task)
+            db.commit()
+            logger.info(f"Created Task record in database: {task_id}")
+        finally:
+            db.close()
+
         # Update progress - initialization
         update_task_progress(task_id, "initialization", "started", {
             "message": "Starting task execution",
@@ -370,6 +396,17 @@ async def run_orchestrator_task(task_id: str, request: TaskRequest):
             "workflow": "Task decomposition → Per microtask: (negotiator → authorize → executor) → Aggregation",
         }
 
+        # Update Task status in database
+        db = SessionLocal()
+        try:
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if task:
+                task.status = "completed"
+                db.commit()
+                logger.info(f"Updated Task status to completed: {task_id}")
+        finally:
+            db.close()
+
     except Exception as e:
         # Update error status
         logger.error(f"Task {task_id} failed: {e}", exc_info=True)
@@ -379,6 +416,17 @@ async def run_orchestrator_task(task_id: str, request: TaskRequest):
 
         tasks_storage[task_id]["status"] = "failed"
         tasks_storage[task_id]["error"] = str(e)
+
+        # Update Task status in database
+        db = SessionLocal()
+        try:
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if task:
+                task.status = "failed"
+                db.commit()
+                logger.info(f"Updated Task status to failed: {task_id}")
+        finally:
+            db.close()
 
 
 @app.post("/execute", response_model=TaskResponse)
