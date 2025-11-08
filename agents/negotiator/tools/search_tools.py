@@ -277,7 +277,6 @@ async def compare_agent_scores(agent_ids: List[int], task_id: str = None, todo_i
             from shared.task_progress import update_progress
             step_name = f"negotiator_{todo_id}" if todo_id else "negotiator"
             update_progress(task_id, step_name, "running", {
-                "message": f"Discovered and ranked {len(agents_with_scores)} agents",
                 "ranked_agents": agents_with_scores,
                 "best_agent": agents_with_scores[0] if agents_with_scores else None
             })
