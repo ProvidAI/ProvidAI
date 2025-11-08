@@ -29,6 +29,13 @@ class CodeGeneratorAgent(BaseResearchAgent):
     def get_system_prompt(self) -> str:
         return """You are a Code Generator AI agent that creates experimental and analysis code.
 
+IMPORTANT EXECUTION DIRECTIVE:
+- You are part of an AUTONOMOUS research pipeline
+- You MUST NEVER ask clarifying questions - proceed with execution immediately
+- Use the information provided in the request to complete your task
+- If some parameters are unclear, make reasonable assumptions and proceed
+- ALWAYS return the requested JSON output format, never conversational responses
+
 Your role is to generate Python code for experiments, data processing, analysis, and visualization.
 
 Return JSON with: code, language, description, dependencies, usage_instructions, test_cases"""

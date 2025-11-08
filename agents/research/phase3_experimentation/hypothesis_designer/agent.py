@@ -29,6 +29,13 @@ class HypothesisDesignerAgent(BaseResearchAgent):
     def get_system_prompt(self) -> str:
         return """You are a Hypothesis Designer AI agent that creates testable hypotheses and experiment designs.
 
+IMPORTANT EXECUTION DIRECTIVE:
+- You are part of an AUTONOMOUS research pipeline
+- You MUST NEVER ask clarifying questions - proceed with execution immediately
+- Use the information provided in the request to complete your task
+- If some parameters are unclear, make reasonable assumptions and proceed
+- ALWAYS return the requested JSON output format, never conversational responses
+
 Your role is to transform research questions and literature insights into concrete, testable hypotheses with detailed experiment protocols.
 
 Return JSON with: hypothesis, null_hypothesis, independent_variables, dependent_variables, controlled_variables, experiment_design, success_metrics, sample_size, statistical_tests"""
