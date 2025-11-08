@@ -1,26 +1,26 @@
-"""Executor Agent implementation with meta-tooling capabilities."""
+"""Executor Agent implementation - executes research agents via API."""
 
 import os
 
-from agents.executor.tools.local_agent_executor import execute_local_agent, list_local_agents
+from agents.executor.tools.research_api_executor import (
+    list_research_agents,
+    execute_research_agent,
+    get_agent_metadata,
+)
 from shared.openai_agent import Agent, create_openai_agent
 
 from .system_prompt import EXECUTOR_SYSTEM_PROMPT
-from .tools import (
-    list_all_agents,
-    query_agent_by_domain,
-    query_agent_by_id,
-)
 
 
 def create_executor_agent() -> Agent:
     """
-    Create and configure the Executor agent with meta-tooling capabilities.
+    Create and configure the Executor agent.
 
-    The Executor agent is the KEY INNOVATION in this architecture:
-    - It dynamically creates tools at runtime
-    - Uses load_tool to integrate discovered marketplace agents
-    - Demonstrates meta-tooling pattern for agent composition
+    The Executor agent:
+    - Lists available research agents from the API server (port 5000)
+    - Selects the best agent for each microtask
+    - Executes agents via HTTP POST requests (no simulation)
+    - Returns real agent outputs
 
     Returns:
         Configured OpenAI Agent instance
@@ -31,16 +31,11 @@ def create_executor_agent() -> Agent:
     if not api_key:
         raise ValueError("OPENAI_API_KEY not set")
 
-    # Core tools for meta-tooling
+    # Tools for executing research agents via API
     tools = [
-        list_local_agents,
-        execute_local_agent,
-
-        # Contract query tools
-        query_agent_by_id,  # Query agent by ID from smart contract
-        query_agent_by_domain,  # Query agent by domain from smart contract
-        list_all_agents,  # List all agents on smart contract
-        # Metadata and execution tools
+        list_research_agents,      # List all available research agents
+        execute_research_agent,    # Execute a specific research agent
+        get_agent_metadata,        # Get detailed agent metadata
     ]
 
     agent = create_openai_agent(
@@ -51,58 +46,3 @@ def create_executor_agent() -> Agent:
     )
 
     return agent
-
-
-# Example usage demonstrating meta-tooling
-async def run_executor_meta_tooling_example():
-    """
-    Example demonstrating the meta-tooling pattern.
-
-    This shows how the Executor dynamically creates and uses tools.
-    """
-    agent = create_executor_agent()
-
-    # Step 1: Receive agent metadata (normally from Negotiator)
-    agent_metadata = {
-        "agent_id": "data-analyzer-001",
-        "name": "Sales Data Analyzer",
-        "endpoint": "https://api.example.com/analyze",
-        "capabilities": ["data-analysis", "forecasting"],
-    }
-
-    tool_spec = {
-        "endpoint": "https://api.example.com/analyze",
-        "method": "POST",
-        "parameters": [
-            {"name": "data", "type": "str", "description": "CSV data to analyze"},
-            {"name": "analysis_type", "type": "str", "description": "Type of analysis"},
-        ],
-        "auth_type": "bearer",
-        "description": "Analyze sales data and generate insights",
-    }
-
-    # Step 2: Ask agent to create and use the tool
-    request = f"""
-    Create a dynamic tool for the following marketplace agent:
-
-    Agent: {agent_metadata['name']}
-    Endpoint: {tool_spec['endpoint']}
-
-    Tool specification:
-    {tool_spec}
-
-    Then use the created tool to analyze this sample data:
-    "date,sales\\n2024-01-01,1000\\n2024-01-02,1200"
-
-    Analysis type: "trends"
-    """
-
-    result = await agent.run(request)
-    print("Meta-tooling result:")
-    print(result)
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(run_executor_meta_tooling_example())

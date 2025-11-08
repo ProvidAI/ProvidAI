@@ -19,19 +19,15 @@ def build_server() -> A2AServer:
     agent_card = AgentCard(
         id=os.getenv("EXECUTOR_A2A_ID", "executor-agent"),
         name="Executor Agent",
-        description="Executes marketplace workflows using dynamically generated tools.",
+        description="Executes marketplace workflows using tools.",
         version=os.getenv("EXECUTOR_VERSION", "0.1.0"),
         capabilities=[
-            AgentCapability(
-                name="meta-tooling",
-                description="Generates Python tools at runtime based on marketplace agent metadata.",
-            ),
             AgentCapability(
                 name="task-execution",
                 description="Executes generated tools and orchestrates API interactions.",
             ),
         ],
-        tags=["executor", "meta-tooling", "a2a"],
+        tags=["executor", "a2a"],
     )
 
     host = os.getenv("EXECUTOR_A2A_HOST", "0.0.0.0")

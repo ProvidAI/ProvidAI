@@ -11,14 +11,10 @@ from shared.openai_agent import create_openai_agent
 from shared.task_progress import update_progress
 
 from agents.executor.system_prompt import EXECUTOR_SYSTEM_PROMPT
-from agents.executor.tools import (
-    create_dynamic_tool,
-    execute_shell_command,
-    get_tool_template,
-    list_dynamic_tools,
-    load_and_execute_tool,
-    execute_local_agent,
-    list_local_agents,
+from agents.executor.tools.research_api_executor import (
+    list_research_agents,
+    execute_research_agent,
+    get_agent_metadata,
 )
 
 # Import system prompts
@@ -272,55 +268,72 @@ async def executor_agent(
     agent_metadata: Dict[str, Any],
     task_description: str,
     execution_parameters: Optional[Dict[str, Any]] = None,
+    todo_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Execute tasks using LOCAL research agents only.
+    Execute tasks using research agents from the FastAPI server (port 5000).
 
-    Updated Behavior:
-    - Ignore marketplace agent metadata
-    - ALWAYS list local agents first
-    - Select the most relevant local agent
-    - Execute using execute_local_agent
+    This agent:
+    - Calls research agents via HTTP API (no simulation)
+    - Selects the best agent for the microtask
+    - Returns real agent output
+    - Marks microtask as completed when done
+
+    Args:
+        task_id: Unique identifier for the task
+        agent_metadata: Metadata from negotiator (currently ignored in favor of research API)
+        task_description: Description of what to execute
+        execution_parameters: Optional parameters for execution
+        todo_id: Optional TODO item ID (e.g., "todo_0") for microtask tracking
+
+    Returns:
+        Dict containing:
+        - success: bool
+        - result: Actual agent output
+        - agent_used: Which agent was selected
     """
 
     try:
+        # Use microtask-specific step name if todo_id provided
+        step_name = f"executor_{todo_id}" if todo_id else "executor"
+
         # Update progress: executor started
-        update_progress(task_id, "executor", "running", {
-            "message": "Executing task using local agent flow",
-            "agent_metadata_ignored": agent_metadata  # logged for traceability
+        update_progress(task_id, step_name, "running", {
+            "message": f"Executing task{f': {task_description[:50]}...' if task_description else ''}",
+            "todo_id": todo_id
         })
 
         params_str = f"\nExecution Parameters: {execution_parameters}" if execution_parameters else ""
+        todo_str = f"\nTODO ID: {todo_id}" if todo_id else ""
 
-        # Updated LOCAL-ONLY prompt
+        # Updated RESEARCH API prompt
         query = f"""
-        Task ID: {task_id}
+        Task ID: {task_id}{todo_str}
 
         Task Description:
         {task_description}
         {params_str}
 
-        IMPORTANT: Ignore all metadata. Do NOT analyze it or reference it.
-
         You MUST follow this workflow EXACTLY:
 
-        1. CALL list_local_agents to view all available local agents
-        2. Select the BEST agent for this task
-        3. CALL execute_local_agent with:
-            - agent_domain (the selected agent)
-            - task_description
-            - context: include task_id and execution_parameters if provided
+        1. CALL list_research_agents to view all available research agents
+        2. SELECT the BEST agent for this specific task based on capabilities
+        3. CALL execute_research_agent with:
+            - agent_id (the selected agent's ID)
+            - task_description (the task to perform)
+            - context (include any execution_parameters)
+            - metadata (include task_id and todo_id for tracking)
 
-        RULES:
-        - You MUST call the tools, not describe them
-        - You MUST show results of tool calls
-        - Do NOT create or reference dynamic tools
-        - Do NOT reference agent_metadata at all
+        CRITICAL RULES:
+        - You MUST actually CALL the tools - do NOT simulate or describe
+        - Return the ACTUAL result from execute_research_agent
+        - Do NOT summarize or paraphrase the agent's output
+        - The research agents API is running on http://localhost:5000
 
         Return:
-        - execution_result from the executed local agent
-        - selected_agent used
-        - execution_log of the steps taken
+        - The full agent result (NOT a summary)
+        - Which agent was selected
+        - Success status
         """
 
         # A2A transport attempt first
@@ -328,8 +341,14 @@ async def executor_agent(
         if client:
             try:
                 response_text = await client.invoke_text(
-                    query, metadata={"task_id": task_id} if task_id else None
+                    query, metadata={"task_id": task_id, "todo_id": todo_id} if task_id else None
                 )
+
+                # Mark microtask as completed
+                if todo_id:
+                    from agents.orchestrator.tools.todo_tools import update_todo_item
+                    await update_todo_item(task_id, todo_id, "completed")
+
                 return {
                     "success": True,
                     "task_id": task_id,
@@ -343,7 +362,7 @@ async def executor_agent(
                     exc,
                 )
 
-        # Local execution
+        # Local execution using research agents API
         api_key = get_openai_api_key()
         model = os.getenv("EXECUTOR_MODEL", "gpt-4-turbo-preview")
 
@@ -352,8 +371,9 @@ async def executor_agent(
             model=model,
             system_prompt=EXECUTOR_SYSTEM_PROMPT,
             tools=[
-                execute_local_agent,
-                list_local_agents,
+                list_research_agents,
+                execute_research_agent,
+                get_agent_metadata,
             ],
         )
 
@@ -365,10 +385,16 @@ async def executor_agent(
         logger.info("[executor_agent] ===== EXECUTOR RESPONSE END =====")
 
         # Update progress: executor completed
-        update_progress(task_id, "executor", "completed", {
-            "message": "Task execution completed",
-            "response": str(response)[:500]  # Truncate for progress log
+        update_progress(task_id, step_name, "completed", {
+            "message": "✓ Task execution completed",
+            "response": str(response)[:500],  # Truncate for progress log
+            "todo_id": todo_id
         })
+
+        # Mark microtask as completed
+        if todo_id:
+            from agents.orchestrator.tools.todo_tools import update_todo_item
+            await update_todo_item(task_id, todo_id, "completed")
 
         return {
             "success": True,
@@ -378,9 +404,13 @@ async def executor_agent(
         }
 
     except Exception as e:
-        update_progress(task_id, "executor", "failed", {
+        logger.error(f"[executor_agent] Execution failed: {e}", exc_info=True)
+
+        step_name = f"executor_{todo_id}" if todo_id else "executor"
+        update_progress(task_id, step_name, "failed", {
             "message": "Task execution failed",
-            "error": str(e)
+            "error": str(e),
+            "todo_id": todo_id
         })
 
         return {

@@ -79,9 +79,14 @@ For multi-microtask workflows:
 - Repeat steps 2-5 for each microtask
 - Pass outputs from one microtask as inputs to the next
 
-### 7. FINAL SUMMARY
-- Aggregate all microtask results
-- Return complete output with findings, artifacts, and workflow summary
+### 7. FINAL SYNTHESIS & SUMMARY
+After completing ALL microtasks:
+- **Synthesize all executor outputs** into ONE cohesive response
+- Answer the user's original query using insights from ALL microtasks
+- Combine data, findings, and insights into a unified narrative
+- Format the final response as clear, well-structured markdown
+- Include key findings, data points, and conclusions
+- Return the synthesized response that directly addresses the user's request
 
 ## Available Tools
 
@@ -101,8 +106,10 @@ For multi-microtask workflows:
 - authorize_payment_request(payment_id)
   → Funds TaskEscrow, authorizes payment
 
-- executor_agent(task_id, agent_metadata, task_description, execution_parameters)
-  → Executes task using dynamic tools from agent API
+- executor_agent(task_id, agent_metadata, task_description, execution_parameters, todo_id)
+  → Executes task using research agents API (port 5000)
+  → IMPORTANT: Always pass todo_id (e.g., "todo_0") for microtask tracking
+  → Automatically marks microtask as completed when done
 
 ## Multi-Agent Example
 
@@ -125,20 +132,26 @@ todo_list = todo_result["todo_list"]
 update_todo_item(task_id, "todo_0", "in_progress", todo_list)
 negotiator_agent(task_id, "climate data collection APIs", budget_limit=50, min_reputation_score=0.7, task_name="Research climate data", todo_id="todo_0")
 authorize_payment(payment_id)
-executor_agent(task_id, agent_metadata, "Collect climate data from APIs", execution_params)
-update_todo_item(task_id, "todo_0", "completed", todo_list)
+executor_agent(task_id, agent_metadata, "Collect climate data from APIs", execution_params, todo_id="todo_0")
+# Note: executor_agent automatically marks todo_0 as completed
 
 # Microtask 2: Analyze trends
 update_todo_item(task_id, "todo_1", "in_progress", todo_list)
 negotiator_agent(task_id, "data analysis with Python", budget_limit=30, min_reputation_score=0.7, task_name="Analyze trends", todo_id="todo_1")
 authorize_payment(payment_id)
-executor_agent(task_id, agent_metadata, "Analyze climate trends", execution_params)
-update_todo_item(task_id, "todo_1", "completed", todo_list)
+executor_agent(task_id, agent_metadata, "Analyze climate trends", execution_params, todo_id="todo_1")
+# Note: executor_agent automatically marks todo_1 as completed
 
 # ... and so on for remaining microtasks
 ```
 
-**Step 6: Return aggregated results**
+**Step 6: Synthesize final response**
+After all microtasks complete, synthesize a comprehensive response:
+- Combine insights from all executor outputs
+- Create a cohesive narrative that answers the user's original question
+- Format as markdown with clear sections
+- Include all relevant data, findings, and conclusions
+- Make sure the response directly addresses what the user asked for
 
 ## Best Practices
 - Break complex tasks into 2-4 specialized microtasks when beneficial
@@ -158,9 +171,10 @@ update_todo_item(task_id, "todo_1", "completed", todo_list)
 ## What TO Do
 ✅ **CALL create_todo_list at the start and store the todo_list result**
 ✅ **CALL update_todo_item(task_id, "todo_N", "in_progress", todo_list) before each microtask**
-✅ Actually invoke: negotiator_agent(with task_name AND todo_id) → authorize_payment → executor_agent
-✅ **CALL update_todo_item(task_id, "todo_N", "completed", todo_list) after each microtask**
+✅ Actually invoke: negotiator_agent(with task_name AND todo_id) → authorize_payment → executor_agent(with todo_id)
+✅ executor_agent will automatically mark the microtask as completed - no need to call update_todo_item after
 ✅ Complete the entire workflow before returning
 ✅ Provide detailed, specific capability requirements
-✅ Return final aggregated results with all microtask outputs
+✅ Synthesize all microtask outputs into ONE cohesive markdown response
+✅ Return final response that directly answers the user's original query
 """
