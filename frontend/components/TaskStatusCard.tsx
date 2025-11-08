@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
@@ -22,6 +22,7 @@ const statusConfig: Record<TaskStatus, { label: string; progress: number; icon: 
 
 export function TaskStatusCard() {
   const { status, plan, selectedAgent, executionLogs, result, error, progressLogs } = useTaskStore()
+  const progressLogsEndRef = useRef<HTMLDivElement>(null)
 
   const config = statusConfig[status]
 
@@ -30,6 +31,13 @@ export function TaskStatusCard() {
     progressLogsCount: progressLogs?.length || 0,
     progressLogs: progressLogs,
   })
+
+  // Auto-scroll to bottom when new progress logs are added
+  useEffect(() => {
+    if (progressLogsEndRef.current) {
+      progressLogsEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [progressLogs])
 
   // Group progress logs by step and keep only the latest status for each step
   // Merge data from multiple updates for the same step
@@ -57,6 +65,31 @@ export function TaskStatusCard() {
     return Array.from(stepMap.values())
   }, [progressLogs])
 
+  // Extract TODO list and track completion status
+  const { todoList, todoCompletionStatus } = useMemo(() => {
+    if (!progressLogs || progressLogs.length === 0) return { todoList: null, todoCompletionStatus: {} }
+
+    // Find the planning step that contains the TODO list
+    const planningLog = progressLogs.find(log => log.step === 'planning' && log.data?.todo_list)
+
+    if (!planningLog?.data?.todo_list) return { todoList: null, todoCompletionStatus: {} }
+
+    // Track which TODOs are completed based on microtask completion logs
+    const completionStatus: Record<string, boolean> = {}
+    progressLogs.forEach(log => {
+      // Check for microtask completion (e.g., "microtask_todo_0" with status "completed")
+      if (log.step.startsWith('microtask_todo_') && log.status === 'completed') {
+        const todoId = log.step.replace('microtask_', '') // Extract "todo_0", "todo_1", etc.
+        completionStatus[todoId] = true
+      }
+    })
+
+    return {
+      todoList: planningLog.data.todo_list,
+      todoCompletionStatus: completionStatus
+    }
+  }, [progressLogs])
+
   return (
     <Card>
       <CardHeader>
@@ -68,11 +101,68 @@ export function TaskStatusCard() {
       </CardHeader>
       <CardContent className="space-y-4">
 
-        {/* Real-time progress logs from backend */}
+        {/* Task Plan and Progress Logs Side by Side */}
         {latestProgressByStep && latestProgressByStep.length > 0 && (
-          <div>
-            <div className="space-y-2">
-              {latestProgressByStep.map((log, index) => {
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+            {/* Task Plan Column (1/3 width on large screens) */}
+            {todoList && (
+              <div className="lg:col-span-1">
+                <div className="sticky top-0">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">Task Plan:</h4>
+                  <div className="space-y-2">
+                    {todoList.map((todo: any, index: number) => {
+                      const isCompleted = todoCompletionStatus[todo.id] || false
+                      return (
+                        <div
+                          key={index}
+                          className={cn(
+                            "p-3 rounded-lg border transition-all",
+                            isCompleted
+                              ? "bg-green-50 border-green-200"
+                              : "bg-white border-slate-200"
+                          )}
+                        >
+                          <div className="flex items-start gap-2">
+                            {isCompleted ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className={cn(
+                                "text-sm font-medium",
+                                isCompleted
+                                  ? "text-green-900 line-through"
+                                  : "text-slate-900"
+                              )}>
+                                {todo.title || todo.content}
+                              </p>
+                              {todo.description && (
+                                <p className={cn(
+                                  "text-xs mt-1",
+                                  isCompleted
+                                    ? "text-green-700 line-through"
+                                    : "text-slate-600"
+                                )}>
+                                  {todo.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Progress Logs Column (2/3 width on large screens) */}
+            <div className={cn("lg:col-span-3", !todoList && "lg:col-span-4")}>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3">Progress Logs:</h4>
+              <div className="max-h-96 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+                {latestProgressByStep.map((log, index) => {
                 const isCompleted = log.status === 'completed' || log.status === 'success';
                 const isFailed = log.status === 'failed' || log.status === 'error';
                 const isRunning = log.status === 'running' || log.status === 'started';
@@ -99,21 +189,30 @@ export function TaskStatusCard() {
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className={cn(
-                            "font-semibold",
-                            isCompleted && 'text-green-700',
-                            isFailed && 'text-red-700',
-                            isRunning && 'text-blue-700',
-                            !isCompleted && !isFailed && !isRunning && 'text-slate-700'
-                          )}>
-                            [{log.step}]
-                          </span>
+                          {/* Only show step name if not a microtask or negotiator (they show task name in message) */}
+                          {!log.step.startsWith('microtask_') && !log.step.startsWith('negotiator_') && (
+                            <span className={cn(
+                              "font-semibold text-xs",
+                              isCompleted && 'text-green-700',
+                              isFailed && 'text-red-700',
+                              isRunning && 'text-blue-700',
+                              !isCompleted && !isFailed && !isRunning && 'text-slate-700'
+                            )}>
+                              [{log.step}]
+                            </span>
+                          )}
                           <span className="text-xs text-slate-500">
                             {new Date(log.timestamp).toLocaleTimeString()}
                           </span>
                         </div>
                         {log.data?.message && (
-                          <p className="text-slate-600 mt-1 text-xs">
+                          <p className={cn(
+                            "mt-1 text-xs font-medium",
+                            isCompleted && 'text-green-700',
+                            isFailed && 'text-red-700',
+                            isRunning && 'text-blue-700',
+                            !isCompleted && !isFailed && !isRunning && 'text-slate-600'
+                          )}>
                             {log.data.message}
                           </p>
                         )}
@@ -124,29 +223,6 @@ export function TaskStatusCard() {
                         )}
                       </div>
                     </div>
-
-                    {/* Show TODO list if present */}
-                    {log.data?.todo_list && (
-                      <div className="ml-6 p-3 bg-white rounded border border-slate-200">
-                        <h5 className="text-xs font-semibold text-slate-700 mb-2">Task Plan:</h5>
-                        <ul className="space-y-1">
-                          {log.data.todo_list.map((todo: any, todoIndex: number) => (
-                            <li key={todoIndex} className="flex items-start gap-2 text-xs">
-                              <Circle className="h-3 w-3 text-slate-400 mt-0.5 flex-shrink-0" />
-                              <div>
-                                <span className="font-medium text-slate-700">{todo.title || todo.content}</span>
-                                {(todo.description || todo.due_date) && (
-                                  <p className="text-slate-500 text-xs mt-0.5">
-                                    {todo.description}
-                                    {todo.due_date && ` (Due: ${todo.due_date})`}
-                                  </p>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
 
                     {/* Show discovered agents if present */}
                     {log.data?.ranked_agents && (
@@ -187,6 +263,9 @@ export function TaskStatusCard() {
                   </div>
                 );
               })}
+              {/* Invisible element at the end to scroll to */}
+              <div ref={progressLogsEndRef} />
+              </div>
             </div>
           </div>
         )}
