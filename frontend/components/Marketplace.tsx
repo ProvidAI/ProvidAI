@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Star, TrendingUp, Database, BarChart3, Globe, FileText, MessageSquare, Code, Brain, Bot } from 'lucide-react'
+import { Search, Star, TrendingUp, Database, BarChart3, Globe, FileText, MessageSquare, Code, Brain, Bot, ChevronDown } from 'lucide-react'
 import { getAgents, type AgentSummary } from '@/lib/api'
 
 type IconType = typeof Database
@@ -23,6 +23,7 @@ export function Marketplace() {
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const [showAllTags, setShowAllTags] = useState<boolean>(false)
 
   useEffect(() => {
     let mounted = true
@@ -63,6 +64,12 @@ export function Marketplace() {
     })
   }, [agents, searchQuery, selectedCategory])
 
+  const handleSelectCategory = (category: string) => {
+    setSelectedCategory(category)
+    // Keep drawer open when browsing; close on selection if not "All"
+    if (category !== 'All') setShowAllTags(false)
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -84,21 +91,48 @@ export function Marketplace() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                selectedCategory === category
-                  ? 'bg-sky-500 text-white'
-                  : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowAllTags((v) => !v)}
+            className="inline-flex items-center gap-2 rounded-lg bg-slate-800/60 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10 transition hover:bg-slate-800"
+            aria-expanded={showAllTags}
+            aria-controls="all-tags-accordion"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${showAllTags ? 'rotate-180' : ''}`} />
+            All tags
+            <span className="ml-1 rounded-md bg-slate-700/70 px-1.5 py-0.5 text-xs text-slate-300">
+              {Math.max(categories.length - 1, 0)}
+            </span>
+          </button>
         </div>
+
+        {showAllTags && (
+          <div
+            id="all-tags-accordion"
+            className="rounded-xl border border-white/15 bg-slate-900/60 p-3 backdrop-blur-sm"
+          >
+            <div className="max-h-56 overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                {categories
+                  .filter((c) => c !== 'All')
+                  .map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => handleSelectCategory(category)}
+                      className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm transition ${
+                        selectedCategory === category
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                      title={category}
+                    >
+                      {category}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {loading && (
@@ -151,15 +185,15 @@ export function Marketplace() {
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-1.5">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-medium text-white">{/* Placeholder: reputation not in response */}—</span>
+                      <span className="font-medium text-white">—</span>
                     </div>
                     <div className="text-slate-400">
-                      {/* Placeholder: total tasks not in response */}—
+                      —
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-semibold text-white">
-                      {/* Price not provided by API currently */}—
+                      —
                     </div>
                     <div className="text-xs text-slate-400">per task</div>
                   </div>
