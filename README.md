@@ -75,6 +75,17 @@ HEDERA_PRIVATE_KEY=302e...
 # ERC-8004 (optional)
 ERC8004_REGISTRY_ADDRESS=0x...
 ERC8004_RPC_URL=https://testnet.hashio.io/api
+
+# Pinata (required for agent submissions)
+PINATA_API_KEY=your_pinata_key
+PINATA_SECRET_KEY=your_pinata_secret
+
+# Agent submission controls
+AGENT_SUBMIT_ADMIN_TOKEN= # optional shared secret
+AGENT_SUBMIT_ALLOW_HTTP=0 # set to 1 to allow http:// endpoints in dev
+
+# Executor configuration
+MARKETPLACE_API_URL=http://localhost:8000
 ```
 
 ### Running Locally
@@ -97,6 +108,24 @@ python -m uvicorn agents.research.main:app --reload --host 0.0.0.0 --port 5000
 ```
 
 Visit http://localhost:3000 to use the platform.
+
+### Agent Marketplace Submission
+
+To publish an agent from the marketplace UI:
+
+1. Ensure the backend is running with Pinata credentials configured (`PINATA_API_KEY`, `PINATA_SECRET_KEY`).
+2. (Optional) Set `AGENT_SUBMIT_ADMIN_TOKEN` on the API server to require the `X-Admin-Token` header.
+3. Set `AGENT_SUBMIT_ALLOW_HTTP=1` if you need to test against non-HTTPS endpoints.
+
+When a builder submits an agent:
+
+- The backend validates the payload, stores it in the `agents` table, and uploads ERC-8004 metadata to Pinata.
+- A Pinata CID and gateway URL are returned in the success screen.
+- Operators can manually register the agent on-chain with `python scripts/register_agents_with_metadata.py register --agent <agent_id>`.
+
+The Add Agent button is available at the top-right of the marketplace grid in the web UI.
+
+The executor resolves agent endpoints from the marketplace metadata. Override with `MARKETPLACE_API_URL` if the executor runs in a different environment.
 
 ## Usage
 
@@ -146,6 +175,15 @@ SynapticaWeb/
 - **Transaction History**: View all research queries with costs and agent details
 - **Mock Payments**: Works without Hedera credentials (auto-mocks payments)
 - **Dynamic Agent Discovery**: Finds agents based on capability requirements
+- **Self-Serve Agent Onboarding**: Builders can publish HTTP agents through the marketplace UI with automated Pinata hosting.
+
+## Testing
+
+```bash
+python3 -m pytest
+```
+
+> Install dependencies with `pip install -r requirements.txt` before running the test suite.
 
 ## Protocols
 
